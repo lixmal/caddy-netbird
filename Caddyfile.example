@@ -1,0 +1,16 @@
+{
+    netbird {
+        management_url https://api.netbird.io:443
+        setup_key FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF
+
+        node ingress {
+            hostname caddy-ingress
+        }
+    }
+}
+
+app.example.com {
+    reverse_proxy backend.netbird.cloud:8080 {
+        transport netbird ingress
+    }
+}
