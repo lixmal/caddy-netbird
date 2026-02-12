@@ -1,0 +1,17 @@
+# Build output
+cmd/caddy/caddy
+
+# Test binaries
+*.test
+
+# OS files
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+Caddyfile
+
