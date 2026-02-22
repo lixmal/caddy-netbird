@@ -267,9 +267,9 @@ func (mc *ManagedClient) Destruct() error {
 //	{
 //	    netbird {
 //	        management_url https://api.netbird.io:443
-//	        setup_key {env.NB_SETUP_KEY}
+//	        setup_key {$NB_SETUP_KEY}
 //	        node mynode {
-//	            setup_key {env.NB_KEY}
+//	            setup_key {$NB_KEY}
 //	            hostname my-caddy
 //	        }
 //	    }
