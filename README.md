@@ -201,15 +201,84 @@ app.example.com {
 }
 ```
 
+## Admin API
+
+The plugin registers endpoints on Caddy's [admin API](https://caddyserver.com/docs/api) (default: `localhost:2019`) for debugging and runtime control.
+
+### Status
+
+```bash
+# Human-readable output (default)
+curl localhost:2019/netbird/status
+
+# JSON output
+curl 'localhost:2019/netbird/status?format=json'
+```
+
+Example text output:
+
+```
+Node: ingress
+  NetBird IP:  100.0.50.187/16
+  FQDN:        caddy-ingress.netbird.cloud
+  Management:  https://api.netbird.io:443  Connected
+  Signal:      https://signal.netbird.io   Connected
+  Relay:       rel://relay.netbird.io      Available
+
+  Peers (3):
+  FQDN                       IP          Status      Latency  Transfer       Conn     Handshake  Routes
+  ----                       --          ------      -------  --------       ----     ---------  ------
+  backend.netbird.cloud      100.0.1.10  Connected   1.2ms    1.5 KiB/2 KiB  P2P      13s ago    192.168.1.0/24
+  api-backend.netbird.cloud  100.0.1.20  Connected   3.4ms    800 B/1.2 KiB  Relayed  45s ago    -
+  web-backend.netbird.cloud  100.0.1.30  Connecting  -        -              -        -          -
+```
+
+### Ping
+
+Test connectivity to a host through the NetBird network:
+
+```bash
+# TCP ping (default)
+curl -X POST localhost:2019/netbird/ping \
+  -d '{"node": "ingress", "address": "backend.netbird.cloud:8080"}'
+
+# ICMP ping
+curl -X POST localhost:2019/netbird/ping \
+  -d '{"node": "ingress", "address": "backend.netbird.cloud", "network": "ping"}'
+
+# UDP ping
+curl -X POST localhost:2019/netbird/ping \
+  -d '{"node": "ingress", "address": "dns-server.netbird.cloud:53", "network": "udp"}'
+```
+
+Response:
+
+```json
+{"reachable": true, "latency": 1234567}
+```
+
+The `node` field defaults to `"default"` if omitted. Latency is in nanoseconds.
+
+### Log level
+
+Change the NetBird client log level at runtime:
+
+```bash
+curl -X PUT localhost:2019/netbird/log-level -d '{"level": "debug"}'
+```
+
+Valid levels: `panic`, `fatal`, `error`, `warn`, `info`, `debug`, `trace`.
+
 ## Architecture
 
-The plugin registers three Caddy modules:
+The plugin registers four Caddy modules:
 
 | Module | Caddy ID | Purpose |
 |--------|----------|---------|
 | `App` | `netbird` | Manages NetBird client lifecycle, config, and usage pool |
 | `Transport` | `http.reverse_proxy.transport.netbird` | Dials HTTP upstreams through the NetBird network |
 | `Handler` | `layer4.handlers.netbird` | Proxies raw TCP/UDP through the NetBird network (requires caddy-l4) |
+| `Admin API` | `admin.api.netbird` | Exposes status, ping, and log level endpoints on the admin API |
 
 The embedded NetBird client (`embed.Client`) runs entirely in userspace without requiring a TUN device or root privileges. Upstream traffic is dialed through the tunnel while Caddy handles TLS termination, load balancing, health checks, retries, and all other reverse proxy features.
 

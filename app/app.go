@@ -148,6 +148,20 @@ func (a *App) ReleaseClient(nodeName string) error {
 	return err
 }
 
+// LookupClient returns the ManagedClient for the named node if it exists in the pool.
+// Unlike GetClient, it does not create a new client or increment the ref count.
+func (a *App) LookupClient(nodeName string) (*ManagedClient, bool) {
+	var mc *ManagedClient
+	a.pool.Range(func(key, val any) bool {
+		if key.(string) == nodeName {
+			mc = val.(*ManagedClient)
+			return false
+		}
+		return true
+	})
+	return mc, mc != nil
+}
+
 func (a *App) newManagedClient(nodeName string) (*ManagedClient, error) {
 	node := a.resolveNode(nodeName)
 
