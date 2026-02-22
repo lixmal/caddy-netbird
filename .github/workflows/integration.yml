@@ -1,0 +1,162 @@
+name: Integration
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build caddy binary
+        run: CGO_ENABLED=0 go build -o ./integration/caddy ./cmd/caddy
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Robot Framework
+        run: pip install -r integration/requirements.txt
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Configure hostname resolution
+        run: echo "127.0.0.1 nb-server" | sudo tee -a /etc/hosts
+
+      - name: Start infrastructure and seed database
+        working-directory: integration
+        run: |
+          docker compose up -d netbird-server echo-server echo-tcp echo-udp echo-tls
+          docker compose up netbird-setup --exit-code-from netbird-setup
+
+      - name: Apply Terraform
+        working-directory: integration/terraform
+        env:
+          NB_PAT: nbp_GRADBFAcX04gihh9ZwL2gGeJ55kbK63iBeI0
+          NB_MANAGEMENT_URL: http://localhost:8080
+        run: |
+          terraform init
+          terraform apply -auto-approve
+
+      - name: Extract setup keys
+        working-directory: integration/terraform
+        env:
+          NB_PAT: nbp_GRADBFAcX04gihh9ZwL2gGeJ55kbK63iBeI0
+          NB_MANAGEMENT_URL: http://localhost:8080
+        run: |
+          echo "CADDY_SETUP_KEY=$(terraform output -raw caddy_setup_key)" >> "$GITHUB_ENV"
+          echo "ROUTING_PEER_SETUP_KEY=$(terraform output -raw routing_peer_setup_key)" >> "$GITHUB_ENV"
+
+      - name: Start routing peer
+        working-directory: integration
+        env:
+          ROUTING_PEER_SETUP_KEY: ${{ env.ROUTING_PEER_SETUP_KEY }}
+        run: |
+          docker compose up -d routing-peer
+          echo "Waiting for routing peer to register..."
+          for i in $(seq 1 60); do
+            PEER_COUNT=$(curl -sf http://localhost:8080/api/peers \
+              -H "Authorization: Token nbp_GRADBFAcX04gihh9ZwL2gGeJ55kbK63iBeI0" \
+              -H "Accept: application/json" 2>/dev/null | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
+            if [ "$PEER_COUNT" -ge 1 ]; then
+              echo "Routing peer registered ($PEER_COUNT peers)"
+              exit 0
+            fi
+            echo "Waiting for peer registration... ($i/60)"
+            sleep 2
+          done
+          echo "ERROR: Routing peer did not register"
+          docker compose logs routing-peer 2>&1 | tail -30
+          exit 1
+
+      - name: Start Caddy
+        working-directory: integration
+        env:
+          NB_SETUP_KEY: ${{ env.CADDY_SETUP_KEY }}
+        run: |
+          echo "Setup key length: ${#NB_SETUP_KEY}"
+          ./caddy run --config Caddyfile --adapter caddyfile &
+          CADDY_PID=$!
+          echo "CADDY_PID=$CADDY_PID" >> "$GITHUB_ENV"
+
+          echo "Waiting for Caddy admin API..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:2019/config/ > /dev/null 2>&1; then
+              echo "Caddy admin API is ready"
+              break
+            fi
+            sleep 2
+          done
+
+          echo "Waiting for NetBird connection..."
+          for i in $(seq 1 120); do
+            if curl -sf 'http://localhost:2019/netbird/status?format=json' 2>/dev/null | \
+              python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          nodes = d.get('nodes', {})
+          node = nodes.get('ingress', {})
+          mgmt = node.get('management', {})
+          if mgmt.get('connected'):
+              sys.exit(0)
+          sys.exit(1)
+          " 2>/dev/null; then
+              echo "NetBird client connected"
+              exit 0
+            fi
+            echo "Waiting for NetBird connection... ($i/120)"
+            sleep 2
+          done
+          echo "ERROR: NetBird did not connect"
+          curl -sf 'http://localhost:2019/netbird/status?format=json' 2>/dev/null | python3 -m json.tool || true
+          exit 1
+
+      - name: Run integration tests
+        working-directory: integration
+        run: robot --outputdir results tests/
+
+      - name: Report test results
+        if: always()
+        uses: joonvena/robotframework-reporter-action@v2.5
+        with:
+          gh_access_token: ${{ secrets.GITHUB_TOKEN }}
+          report_path: integration/results
+          only_summary: true
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: robot-results
+          path: integration/results/
+
+      - name: Collect logs on failure
+        if: failure()
+        working-directory: integration
+        run: |
+          echo "=== NetBird server logs ==="
+          docker compose logs netbird-server 2>&1 | tail -100
+          echo "=== Routing peer logs ==="
+          docker compose logs routing-peer 2>&1 | tail -100
+          echo "=== Caddy NB status ==="
+          curl -sf 'http://localhost:2019/netbird/status?format=json' 2>/dev/null | python3 -m json.tool || true
+
+      - name: Cleanup
+        if: always()
+        working-directory: integration
+        run: |
+          kill ${{ env.CADDY_PID }} 2>/dev/null || true
+          docker compose down -v

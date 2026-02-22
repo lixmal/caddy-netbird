@@ -51,7 +51,7 @@ Minimal example, exposing a NetBird peer to the public internet:
 {
     netbird {
         management_url https://api.netbird.io:443
-        setup_key {env.NB_SETUP_KEY}
+        setup_key {$NB_SETUP_KEY}
 
         node ingress {
             hostname caddy-ingress
@@ -101,7 +101,7 @@ Proxy SSH through NetBird:
 {
     netbird {
         management_url https://api.netbird.io:443
-        setup_key {env.NB_SETUP_KEY}
+        setup_key {$NB_SETUP_KEY}
 
         node ingress {
             hostname caddy-ingress
@@ -173,7 +173,7 @@ Mixed HTTP and L4 in a single config:
 {
     netbird {
         management_url https://api.netbird.io:443
-        setup_key {env.NB_SETUP_KEY}
+        setup_key {$NB_SETUP_KEY}
 
         node ingress {
             hostname caddy-ingress
@@ -317,14 +317,14 @@ Each node creates a separate NetBird peer identity. This is useful when connecti
     netbird {
         node corp {
             management_url https://netbird.corp.example.com:443
-            setup_key {env.NB_CORP_KEY}
+            setup_key {$NB_CORP_KEY}
             hostname caddy-corp
             wireguard_port 0
         }
 
         node staging {
             management_url https://netbird.staging.example.com:443
-            setup_key {env.NB_STAGING_KEY}
+            setup_key {$NB_STAGING_KEY}
             hostname caddy-staging
             wireguard_port 0
         }
@@ -352,13 +352,13 @@ staging-app.example.com {
         management_url https://api.netbird.io:443
 
         node web {
-            setup_key {env.NB_WEB_KEY}
+            setup_key {$NB_WEB_KEY}
             hostname caddy-web
             wireguard_port 0
         }
 
         node api {
-            setup_key {env.NB_API_KEY}
+            setup_key {$NB_API_KEY}
             hostname caddy-api
             wireguard_port 0
         }

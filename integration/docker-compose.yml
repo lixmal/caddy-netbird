@@ -1,0 +1,87 @@
+services:
+  netbird-server:
+    image: ghcr.io/netbirdio/netbird-server:pr-5291
+    ports:
+      - "8080:80"
+      - "3478:3478/udp"
+    volumes:
+      - ./config.yaml:/etc/netbird/config.yaml:ro
+      - netbird-data:/var/lib/netbird
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/9000"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  netbird-setup:
+    image: ubuntu:24.04
+    depends_on:
+      netbird-server:
+        condition: service_healthy
+    volumes:
+      - netbird-data:/var/lib/netbird
+      - ./setup.sh:/setup.sh:ro
+    entrypoint: ["bash", "/setup.sh"]
+
+  echo-server:
+    image: hashicorp/http-echo:latest
+    command: ["-text=echo-ok", "-listen=:8080"]
+    networks:
+      backend:
+        ipv4_address: 172.28.0.10
+
+  echo-tcp:
+    image: alpine/socat:latest
+    command: ["TCP-LISTEN:9090,fork,reuseaddr", "EXEC:/bin/cat"]
+    networks:
+      backend:
+        ipv4_address: 172.28.0.11
+
+  echo-udp:
+    image: alpine/socat:latest
+    command: ["UDP-RECVFROM:9053,fork,reuseaddr", "EXEC:/bin/cat"]
+    networks:
+      backend:
+        ipv4_address: 172.28.0.12
+
+  echo-tls:
+    image: alpine:latest
+    command:
+      - sh
+      - -c
+      - |
+        apk add --no-cache openssl socat &&
+        openssl req -x509 -newkey rsa:2048 -keyout /tmp/key.pem -out /tmp/cert.pem -days 1 -nodes -subj '/CN=echo-tls.test' &&
+        socat OPENSSL-LISTEN:4443,fork,reuseaddr,cert=/tmp/cert.pem,key=/tmp/key.pem,verify=0 EXEC:'/bin/cat'
+    networks:
+      backend:
+        ipv4_address: 172.28.0.13
+
+  routing-peer:
+    image: netbirdio/netbird:latest
+    cap_add:
+      - NET_ADMIN
+      - SYS_RESOURCE
+    extra_hosts:
+      - "nb-server:host-gateway"
+    environment:
+      - NB_SETUP_KEY=${ROUTING_PEER_SETUP_KEY}
+      - NB_MANAGEMENT_URL=http://netbird-server:80
+    networks:
+      - default
+      - backend
+    depends_on:
+      netbird-server:
+        condition: service_healthy
+
+volumes:
+  netbird-data:
+
+networks:
+  backend:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24

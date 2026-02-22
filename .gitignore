@@ -13,5 +13,9 @@ cmd/caddy/caddy
 *.swp
 *.swo
 
-Caddyfile
+/Caddyfile
 
+# Integration test artifacts
+integration/caddy
+integration/results/
+integration/terraform/.terraform/

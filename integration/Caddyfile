@@ -1,0 +1,39 @@
+{
+	admin :2019
+	netbird {
+		management_url http://nb-server:8080
+		setup_key {$NB_SETUP_KEY}
+		log_level info
+
+		node ingress {
+			hostname caddy-integration
+		}
+	}
+	layer4 {
+		# TCP echo
+		:9191 {
+			route {
+				netbird 172.28.0.11:9090 ingress
+			}
+		}
+		# UDP echo
+		udp/:9053 {
+			route {
+				netbird 172.28.0.12:9053 ingress
+			}
+		}
+		# SNI TLS passthrough
+		:4443 {
+			@echotls tls sni echo-tls.test
+			route @echotls {
+				netbird 172.28.0.13:4443 ingress
+			}
+		}
+	}
+}
+
+:8088 {
+	reverse_proxy 172.28.0.10:8080 {
+		transport netbird ingress
+	}
+}
