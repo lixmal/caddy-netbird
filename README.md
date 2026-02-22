@@ -1,6 +1,6 @@
 # caddy-netbird
 
-A [Caddy](https://caddyserver.com) plugin that embeds a [NetBird](https://netbird.io) client, allowing Caddy to reverse-proxy traffic through a NetBird network.
+A [Caddy](https://caddyserver.com) plugin that embeds a [NetBird](https://netbird.io) client, allowing Caddy to proxy traffic through a NetBird network. Supports HTTP reverse proxying (Layer 7) and raw TCP/UDP proxying (Layer 4) via [caddy-l4](https://github.com/mholt/caddy-l4).
 
 ## Prerequisites
 
@@ -16,7 +16,13 @@ This plugin does not create, modify, or manage any NetBird resources. It is a co
 ## Build
 
 ```bash
-xcaddy build --with github.com/netbirdio/caddy-netbird
+xcaddy build --with github.com/lixmal/caddy-netbird
+```
+
+With Layer 4 support (TCP/UDP proxying):
+
+```bash
+xcaddy build --with github.com/lixmal/caddy-netbird --with github.com/mholt/caddy-l4
 ```
 
 Or build from source:
@@ -85,14 +91,125 @@ secure.example.com {
 }
 ```
 
+### Layer 4 (TCP/UDP)
+
+Requires [caddy-l4](https://github.com/mholt/caddy-l4). The `layer4` block goes inside the global options.
+
+Proxy SSH through NetBird:
+
+```caddyfile
+{
+    netbird {
+        management_url https://api.netbird.io:443
+        setup_key {env.NB_SETUP_KEY}
+
+        node ingress {
+            hostname caddy-ingress
+        }
+    }
+
+    layer4 {
+        :2222 {
+            route {
+                netbird backend.netbird.cloud:22 ingress
+            }
+        }
+    }
+}
+```
+
+Proxy DNS (UDP) through NetBird:
+
+```caddyfile
+{
+    layer4 {
+        udp/:5353 {
+            route {
+                netbird dns-server.netbird.cloud:53 ingress
+            }
+        }
+    }
+}
+```
+
+The network protocol (TCP or UDP) is automatically detected from the listener address. The `idle_timeout` option controls how long idle UDP associations are kept (default: 30s):
+
+```caddyfile
+{
+    layer4 {
+        udp/:5353 {
+            idle_timeout 5m
+            route {
+                netbird dns-server.netbird.cloud:53 ingress
+            }
+        }
+    }
+}
+```
+
+SNI routing with TLS passthrough (no TLS termination on Caddy, upstream handles TLS):
+
+```caddyfile
+{
+    layer4 {
+        :443 {
+            @app tls sni app.example.com
+            route @app {
+                netbird backend.netbird.cloud:443 ingress
+            }
+
+            @api tls sni api.example.com
+            route @api {
+                netbird api-backend.netbird.cloud:443 ingress
+            }
+        }
+    }
+}
+```
+
+Mixed HTTP and L4 in a single config:
+
+```caddyfile
+{
+    netbird {
+        management_url https://api.netbird.io:443
+        setup_key {env.NB_SETUP_KEY}
+
+        node ingress {
+            hostname caddy-ingress
+        }
+    }
+
+    layer4 {
+        :2222 {
+            route {
+                netbird backend.netbird.cloud:22 ingress
+            }
+        }
+        udp/:5353 {
+            route {
+                netbird backend.netbird.cloud:53 ingress
+            }
+        }
+    }
+}
+
+app.example.com {
+    reverse_proxy backend.netbird.cloud:8080 {
+        transport netbird ingress
+    }
+}
+```
+
 ## Architecture
 
-The plugin registers two Caddy modules:
+The plugin registers three Caddy modules:
 
 | Module | Caddy ID | Purpose |
 |--------|----------|---------|
 | `App` | `netbird` | Manages NetBird client lifecycle, config, and usage pool |
-| `Transport` | `http.reverse_proxy.transport.netbird` | Dials upstreams through the NetBird network |
+| `Transport` | `http.reverse_proxy.transport.netbird` | Dials HTTP upstreams through the NetBird network |
+| `Handler` | `layer4.handlers.netbird` | Proxies raw TCP/UDP through the NetBird network (requires caddy-l4) |
 
 The embedded NetBird client (`embed.Client`) runs entirely in userspace without requiring a TUN device or root privileges. Upstream traffic is dialed through the tunnel while Caddy handles TLS termination, load balancing, health checks, retries, and all other reverse proxy features.
 

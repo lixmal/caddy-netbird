@@ -7,8 +7,25 @@
             hostname caddy-ingress
         }
     }
+
+    # Layer 4 examples (requires github.com/mholt/caddy-l4)
+    # layer4 {
+    #     # TCP: proxy SSH through NetBird
+    #     :2222 {
+    #         route {
+    #             netbird backend.netbird.cloud:22 ingress
+    #         }
+    #     }
+    #     # UDP: proxy DNS through NetBird
+    #     udp/:5353 {
+    #         route {
+    #             netbird backend.netbird.cloud:53 ingress
+    #         }
+    #     }
+    # }
 }
 
+# HTTP: reverse proxy through NetBird
 app.example.com {
     reverse_proxy backend.netbird.cloud:8080 {
         transport netbird ingress
