@@ -1,0 +1,8 @@
+test.local:53 {
+    hosts {
+        10.0.0.1 app.test.local
+        10.0.0.2 db.test.local
+        fallthrough
+    }
+    log
+}
