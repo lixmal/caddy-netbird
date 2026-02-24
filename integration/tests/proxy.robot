@@ -9,6 +9,7 @@ Suite Setup    Wait For NetBird Connection
 *** Variables ***
 ${CADDY_ADMIN}       http://localhost:2019
 ${CADDY_HTTP}        http://localhost:8088
+${CADDY_HTTP_DNS}    http://localhost:8089
 ${CADDY_L4_HOST}     localhost
 ${CADDY_L4_TCP}      5432
 ${CADDY_L4_UDP}      9053
@@ -20,24 +21,26 @@ ${PING_URL}          http://localhost:2019/netbird/ping
 ${LOG_LEVEL_URL}     http://localhost:2019/netbird/log-level
 
 *** Test Cases ***
-Admin Status JSON Shows Connected Node
-    [Documentation]    Verify the admin API reports a connected NetBird node with management and signal
+Admin Status Shows Both Nodes
+    [Documentation]    Verify both web and dns nodes are connected with management and signal
     ${resp}=    GET    url=${STATUS_URL}    params=format=json    expected_status=200
     ${nodes}=    Get From Dictionary    ${resp.json()}    nodes
-    Dictionary Should Contain Key    ${nodes}    ingress
-    ${node}=    Get From Dictionary    ${nodes}    ingress
-    ${mgmt}=    Get From Dictionary    ${node}    management
-    Should Be True    ${mgmt}[connected]    Management should be connected
-    ${signal}=    Get From Dictionary    ${node}    signal
-    Should Be True    ${signal}[connected]    Signal should be connected
-    ${local}=    Get From Dictionary    ${node}    local
-    Should Not Be Empty    ${local}[ip]    Local IP should be set
+    FOR    ${name}    IN    web    dns
+        Dictionary Should Contain Key    ${nodes}    ${name}
+        ${node}=    Get From Dictionary    ${nodes}    ${name}
+        ${mgmt}=    Get From Dictionary    ${node}    management
+        Should Be True    ${mgmt}[connected]    ${name} management should be connected
+        ${signal}=    Get From Dictionary    ${node}    signal
+        Should Be True    ${signal}[connected]    ${name} signal should be connected
+        ${local}=    Get From Dictionary    ${node}    local
+        Should Not Be Empty    ${local}[ip]    ${name} local IP should be set
+    END
 
 Admin Status JSON Shows Routing Peer
     [Documentation]    Verify the routing peer appears in the peer list
     ${resp}=    GET    url=${STATUS_URL}    params=format=json    expected_status=200
     ${nodes}=    Get From Dictionary    ${resp.json()}    nodes
-    ${node}=    Get From Dictionary    ${nodes}    ingress
+    ${node}=    Get From Dictionary    ${nodes}    web
     ${peers}=    Get From Dictionary    ${node}    peers
     ${peer_count}=    Get Length    ${peers}
     Should Be True    ${peer_count} >= 1    At least one peer should be visible
@@ -45,7 +48,8 @@ Admin Status JSON Shows Routing Peer
 Admin Status Text Format
     [Documentation]    Verify the admin API returns human-readable text status
     ${resp}=    GET    url=${STATUS_URL}    expected_status=200
-    Should Contain    ${resp.text}    ingress
+    Should Contain    ${resp.text}    web
+    Should Contain    ${resp.text}    dns
     Should Contain    ${resp.text}    Management
 
 Admin Set Log Level
@@ -58,25 +62,35 @@ Admin Set Log Level
 
 Admin Ping TCP
     [Documentation]    Verify TCP ping through NetBird tunnel via admin API
-    ${body}=    Create Dictionary    node=ingress    address=${NGINX_IP}:8080    network=tcp
+    ${body}=    Create Dictionary    node=web    address=${NGINX_IP}:8080    network=tcp
     ${resp}=    POST    url=${PING_URL}    json=${body}    expected_status=200
     Should Be True    ${resp.json()}[reachable]    TCP ping should report reachable
 
 Admin Ping UDP
-    [Documentation]    Verify UDP ping through NetBird tunnel via admin API
-    ${body}=    Create Dictionary    node=ingress    address=${COREDNS_IP}:53    network=udp
+    [Documentation]    Verify UDP ping through NetBird tunnel via admin API (dns node)
+    ${body}=    Create Dictionary    node=dns    address=${COREDNS_IP}:53    network=udp
     ${resp}=    POST    url=${PING_URL}    json=${body}    expected_status=200
     Should Be True    ${resp.json()}[reachable]    UDP ping should report reachable
 
-Admin Ping ICMP
-    [Documentation]    Verify ICMP ping through NetBird tunnel via admin API
-    ${body}=    Create Dictionary    node=ingress    address=${NGINX_IP}    network=ping
+Admin Ping ICMP Via Web
+    [Documentation]    Verify ICMP ping through NetBird tunnel via web node
+    ${body}=    Create Dictionary    node=web    address=${NGINX_IP}    network=ping
     ${resp}=    POST    url=${PING_URL}    json=${body}    expected_status=200
-    Should Be True    ${resp.json()}[reachable]    ICMP ping should report reachable
+    Should Be True    ${resp.json()}[reachable]    ICMP ping via web should report reachable
+
+Admin Ping ICMP Via Dns
+    [Documentation]    Verify ICMP ping through NetBird tunnel via dns node
+    ${body}=    Create Dictionary    node=dns    address=${NGINX_IP}    network=ping
+    ${resp}=    POST    url=${PING_URL}    json=${body}    expected_status=200
+    Should Be True    ${resp.json()}[reachable]    ICMP ping via dns should report reachable
 
 HTTP Reverse Proxy Returns Nginx JSON
     [Documentation]    HTTP request through Caddy reverse proxy via NetBird tunnel to nginx
     Wait Until Keyword Succeeds    30 sec    2 sec    Verify HTTP Proxy Response
+
+HTTP Reverse Proxy Via Dns Node
+    [Documentation]    HTTP request through Caddy reverse proxy via dns NetBird node to nginx
+    Wait Until Keyword Succeeds    30 sec    2 sec    Verify HTTP Dns Proxy Response
 
 HTTP Reverse Proxy Health Endpoint
     [Documentation]    Verify the nginx /health endpoint through the tunnel
@@ -118,22 +132,28 @@ L4 SNI TLS Passthrough
 
 *** Keywords ***
 Wait For NetBird Connection
-    [Documentation]    Wait until the NetBird client is connected to management and has peers
-    Wait Until Keyword Succeeds    2 min    5 sec    NetBird Client Connected
+    [Documentation]    Wait until both NetBird nodes are connected to management and have peers
+    Wait Until Keyword Succeeds    2 min    5 sec    Both Nodes Connected
 
-NetBird Client Connected
+Both Nodes Connected
     ${resp}=    GET    url=${STATUS_URL}    params=format=json    expected_status=200
     ${nodes}=    Get From Dictionary    ${resp.json()}    nodes
-    Dictionary Should Contain Key    ${nodes}    ingress
-    ${node}=    Get From Dictionary    ${nodes}    ingress
-    ${mgmt}=    Get From Dictionary    ${node}    management
-    Should Be True    ${mgmt}[connected]    Management not connected
-    ${peers}=    Get From Dictionary    ${node}    peers
-    ${peer_count}=    Get Length    ${peers}
-    Should Be True    ${peer_count} >= 1    No peers connected yet
+    FOR    ${name}    IN    web    dns
+        Dictionary Should Contain Key    ${nodes}    ${name}    Node ${name} not found in status
+        ${node}=    Get From Dictionary    ${nodes}    ${name}
+        ${mgmt}=    Get From Dictionary    ${node}    management
+        Should Be True    ${mgmt}[connected]    ${name} management not connected
+        ${peers}=    Get From Dictionary    ${node}    peers
+        ${peer_count}=    Get Length    ${peers}
+        Should Be True    ${peer_count} >= 1    ${name} has no peers connected yet
+    END
 
 Verify HTTP Proxy Response
     ${resp}=    GET    url=${CADDY_HTTP}    expected_status=200
+    Should Contain    ${resp.text}    nginx
+
+Verify HTTP Dns Proxy Response
+    ${resp}=    GET    url=${CADDY_HTTP_DNS}    expected_status=200
     Should Contain    ${resp.text}    nginx
 
 Verify PostgreSQL Connection

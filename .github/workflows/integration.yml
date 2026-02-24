@@ -104,26 +104,27 @@ jobs:
             sleep 2
           done
 
-          echo "Waiting for NetBird connection..."
+          echo "Waiting for NetBird connection (both nodes)..."
           for i in $(seq 1 120); do
             if curl -sf 'http://localhost:2019/netbird/status?format=json' 2>/dev/null | \
               python3 -c "
           import sys, json
           d = json.load(sys.stdin)
           nodes = d.get('nodes', {})
-          node = nodes.get('ingress', {})
-          mgmt = node.get('management', {})
-          if mgmt.get('connected'):
-              sys.exit(0)
-          sys.exit(1)
+          for name in ('web', 'dns'):
+              node = nodes.get(name, {})
+              mgmt = node.get('management', {})
+              if not mgmt.get('connected'):
+                  sys.exit(1)
+          sys.exit(0)
           " 2>/dev/null; then
-              echo "NetBird client connected"
+              echo "Both NetBird nodes connected"
               exit 0
             fi
             echo "Waiting for NetBird connection... ($i/120)"
             sleep 2
           done
-          echo "ERROR: NetBird did not connect"
+          echo "ERROR: NetBird nodes did not connect"
           curl -sf 'http://localhost:2019/netbird/status?format=json' 2>/dev/null | python3 -m json.tool || true
           exit 1
 
