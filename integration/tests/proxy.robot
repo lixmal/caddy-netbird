@@ -68,6 +68,12 @@ Admin Ping UDP
     ${resp}=    POST    url=${PING_URL}    json=${body}    expected_status=200
     Should Be True    ${resp.json()}[reachable]    UDP ping should report reachable
 
+Admin Ping ICMP
+    [Documentation]    Verify ICMP ping through NetBird tunnel via admin API
+    ${body}=    Create Dictionary    node=ingress    address=${NGINX_IP}    network=ping
+    ${resp}=    POST    url=${PING_URL}    json=${body}    expected_status=200
+    Should Be True    ${resp.json()}[reachable]    ICMP ping should report reachable
+
 HTTP Reverse Proxy Returns Nginx JSON
     [Documentation]    HTTP request through Caddy reverse proxy via NetBird tunnel to nginx
     Wait Until Keyword Succeeds    30 sec    2 sec    Verify HTTP Proxy Response
