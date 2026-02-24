@@ -1,0 +1,101 @@
+name: Update NetBird
+
+on:
+  schedule:
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Get latest NetBird release
+        id: latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(gh api repos/netbirdio/netbird/releases/latest --jq .tag_name)
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Check for existing PR
+        id: existing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.latest.outputs.version }}"
+          BRANCH="auto/netbird-${VERSION}"
+          if gh pr list --head "${BRANCH}" --state all --json number --jq '.[0].number' | grep -q .; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update dependency
+        if: steps.existing.outputs.exists == 'false'
+        run: |
+          VERSION="${{ steps.latest.outputs.version }}"
+          go mod edit -dropreplace=github.com/netbirdio/netbird
+          go get "github.com/netbirdio/netbird@${VERSION}"
+          go mod tidy
+
+      - name: Check for changes
+        if: steps.existing.outputs.exists == 'false'
+        id: diff
+        run: |
+          if git diff --quiet go.mod go.sum; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create Pull Request
+        if: steps.existing.outputs.exists == 'false' && steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.latest.outputs.version }}"
+          BRANCH="auto/netbird-${VERSION}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "${BRANCH}"
+          git add go.mod go.sum
+          git commit -m "Bump netbird to ${VERSION}"
+          git push -u origin "${BRANCH}"
+
+          gh pr create \
+            --title "Bump netbird to ${VERSION}" \
+            --body "Automated NetBird dependency update to ${VERSION}."
+          gh pr merge --auto --squash "${BRANCH}"
+
+  tag:
+    if: github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Bump netbird to ')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Bump patch version tag
+        run: |
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          MAJOR=$(echo "${LATEST_TAG}" | cut -d. -f1)
+          MINOR=$(echo "${LATEST_TAG}" | cut -d. -f2)
+          PATCH=$(echo "${LATEST_TAG}" | cut -d. -f3)
+          NEW_TAG="${MAJOR}.${MINOR}.$((PATCH + 1))"
+
+          git tag "${NEW_TAG}"
+          git push origin "${NEW_TAG}"
