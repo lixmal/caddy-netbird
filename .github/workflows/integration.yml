@@ -33,13 +33,16 @@ jobs:
         with:
           terraform_wrapper: false
 
+      - name: Install test dependencies
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client dnsutils
+
       - name: Configure hostname resolution
         run: echo "127.0.0.1 nb-server" | sudo tee -a /etc/hosts
 
       - name: Start infrastructure and seed database
         working-directory: integration
         run: |
-          docker compose up -d netbird-server echo-server echo-tcp echo-udp echo-tls
+          docker compose up -d netbird-server nginx postgres coredns
           docker compose up netbird-setup --exit-code-from netbird-setup
 
       - name: Apply Terraform
