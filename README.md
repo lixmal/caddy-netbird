@@ -51,7 +51,11 @@ The image runs as a non-root user. `NET_BIND_SERVICE` is required to bind ports 
 
 ## Caddyfile
 
-Minimal example, exposing a NetBird peer to the public internet:
+See [examples/](examples/) for complete Caddyfile configurations. Below is a quick overview.
+
+### Ingress (internet to NetBird)
+
+Expose a NetBird peer to the public internet:
 
 ```caddyfile
 {
@@ -72,48 +76,56 @@ app.example.com {
 }
 ```
 
-Multiple backends with load balancing:
+### Egress (NetBird to external)
+
+Make external services available to NetBird peers. Uses `netbird/<node>:<port>` (TCP) or `netbird-udp/<node>:<port>` (UDP) listener address formats to bind on the NetBird virtual interface:
 
 ```caddyfile
-api.example.com {
-    reverse_proxy app1.netbird.cloud:3000 app2.netbird.cloud:3000 {
-        transport netbird ingress
-        lb_policy round_robin
-        health_uri /healthz
-        health_interval 10s
+{
+    netbird {
+        management_url https://api.netbird.io:443
+        setup_key {$NB_SETUP_KEY}
+
+        node egress {
+            hostname caddy-egress
+            wireguard_port 0
+            block_inbound false
+        }
     }
-}
-```
 
-Upstream TLS, for example a DNS route through NetBird to an internal HTTPS service:
-
-```caddyfile
-secure.example.com {
-    reverse_proxy https://vault.internal:443 {
-        transport netbird ingress {
-            tls_server_name vault.internal
+    layer4 {
+        # Forward TCP port to an external service
+        netbird/egress:9080 {
+            route {
+                proxy external-host:8080
+            }
+        }
+        # SOCKS5 proxy for dynamic destinations
+        netbird/egress:1080 {
+            route {
+                socks5
+            }
+        }
+        # Forward UDP to an internal DNS server
+        netbird-udp/egress:5353 {
+            route {
+                proxy udp/dns-server.internal:53
+            }
         }
     }
 }
 ```
+
+NetBird peers can then connect to `<caddy-egress-ip>:9080` for the forwarded service, or use `<caddy-egress-ip>:1080` as a SOCKS5 proxy.
+
+The `block_inbound false` option is required for egress nodes: it allows incoming connections from NetBird peers to reach the listener.
 
 ### Layer 4 (TCP/UDP)
 
 Requires [caddy-l4](https://github.com/mholt/caddy-l4). The `layer4` block goes inside the global options.
 
-Proxy SSH through NetBird:
-
 ```caddyfile
 {
-    netbird {
-        management_url https://api.netbird.io:443
-        setup_key {$NB_SETUP_KEY}
-
-        node ingress {
-            hostname caddy-ingress
-        }
-    }
-
     layer4 {
         :2222 {
             route {
@@ -124,88 +136,7 @@ Proxy SSH through NetBird:
 }
 ```
 
-Proxy DNS (UDP) through NetBird:
-
-```caddyfile
-{
-    layer4 {
-        udp/:5353 {
-            route {
-                netbird dns-server.netbird.cloud:53 ingress
-            }
-        }
-    }
-}
-```
-
-The network protocol (TCP or UDP) is automatically detected from the listener address. The `idle_timeout` option controls how long idle UDP associations are kept (default: 30s):
-
-```caddyfile
-{
-    layer4 {
-        udp/:5353 {
-            idle_timeout 5m
-            route {
-                netbird dns-server.netbird.cloud:53 ingress
-            }
-        }
-    }
-}
-```
-
-SNI routing with TLS passthrough (no TLS termination on Caddy, upstream handles TLS):
-
-```caddyfile
-{
-    layer4 {
-        :443 {
-            @app tls sni app.example.com
-            route @app {
-                netbird backend.netbird.cloud:443 ingress
-            }
-
-            @api tls sni api.example.com
-            route @api {
-                netbird api-backend.netbird.cloud:443 ingress
-            }
-        }
-    }
-}
-```
-
-Mixed HTTP and L4 in a single config:
-
-```caddyfile
-{
-    netbird {
-        management_url https://api.netbird.io:443
-        setup_key {$NB_SETUP_KEY}
-
-        node ingress {
-            hostname caddy-ingress
-        }
-    }
-
-    layer4 {
-        :2222 {
-            route {
-                netbird backend.netbird.cloud:22 ingress
-            }
-        }
-        udp/:5353 {
-            route {
-                netbird backend.netbird.cloud:53 ingress
-            }
-        }
-    }
-}
-
-app.example.com {
-    reverse_proxy backend.netbird.cloud:8080 {
-        transport netbird ingress
-    }
-}
-```
+See [examples/](examples/) for more L4 configurations (UDP, SNI routing, mixed HTTP+L4).
 
 ## Admin API
 
@@ -277,13 +208,14 @@ Valid levels: `panic`, `fatal`, `error`, `warn`, `info`, `debug`, `trace`.
 
 ## Architecture
 
-The plugin registers four Caddy modules:
+The plugin registers five Caddy modules:
 
 | Module | Caddy ID | Purpose |
 |--------|----------|---------|
 | `App` | `netbird` | Manages NetBird client lifecycle, config, and usage pool |
 | `Transport` | `http.reverse_proxy.transport.netbird` | Dials HTTP upstreams through the NetBird network |
 | `Handler` | `layer4.handlers.netbird` | Proxies raw TCP/UDP through the NetBird network (requires caddy-l4) |
+| `Listener` | `netbird` (network) | Binds listeners on the NetBird virtual interface for egress |
 | `Admin API` | `admin.api.netbird` | Exposes status, ping, and log level endpoints on the admin API |
 
 The embedded NetBird client (`embed.Client`) runs entirely in userspace without requiring a TUN device or root privileges. Upstream traffic is dialed through the tunnel while Caddy handles TLS termination, load balancing, health checks, retries, and all other reverse proxy features.
@@ -309,6 +241,7 @@ Multiple sites can share the same NetBird client by referencing the same node na
 | `hostname` | Device name in the NetBird network (default: `caddy-<node>`) |
 | `pre_shared_key` | Pre-shared key for the network interface |
 | `wireguard_port` | Port for the network interface (default: 51820 via NetBird) |
+| `block_inbound` | Block inbound connections from peers (default: `true`). Set to `false` for egress nodes |
 
 > **Note on `wireguard_port`:** For reliable peer-to-peer connectivity, the configured port (or the default random port) should be exposed via port forwarding on the host's firewall/NAT. Without it, connections may fall back to relayed traffic which adds latency.
 

@@ -40,6 +40,22 @@ resource "netbird_policy" "caddy_to_resources" {
   }
 }
 
+resource "netbird_policy" "routing_to_caddy" {
+  name        = "routing-to-caddy"
+  description = "Allow routing peers to reach caddy peers for egress testing"
+  enabled     = true
+
+  rule {
+    name          = "routing-to-caddy"
+    enabled       = true
+    action        = "accept"
+    bidirectional = false
+    protocol      = "all"
+    sources       = [netbird_group.routing_peers.id]
+    destinations  = [netbird_group.caddy_peers.id]
+  }
+}
+
 resource "netbird_network" "backend" {
   name        = "backend-network"
   description = "Docker backend network for echo servers"

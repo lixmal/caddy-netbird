@@ -85,6 +85,10 @@ jobs:
           docker compose logs routing-peer 2>&1 | tail -30
           exit 1
 
+      - name: Install tools in routing peer
+        working-directory: integration
+        run: docker exec integration-routing-peer-1 apk add --no-cache curl bind-tools
+
       - name: Start Caddy
         working-directory: integration
         env:
@@ -104,21 +108,21 @@ jobs:
             sleep 2
           done
 
-          echo "Waiting for NetBird connection (both nodes)..."
+          echo "Waiting for NetBird connection (all nodes)..."
           for i in $(seq 1 120); do
             if curl -sf 'http://localhost:2019/netbird/status?format=json' 2>/dev/null | \
               python3 -c "
           import sys, json
           d = json.load(sys.stdin)
           nodes = d.get('nodes', {})
-          for name in ('web', 'dns'):
+          for name in ('web', 'dns', 'egress'):
               node = nodes.get(name, {})
               mgmt = node.get('management', {})
               if not mgmt.get('connected'):
                   sys.exit(1)
           sys.exit(0)
           " 2>/dev/null; then
-              echo "Both NetBird nodes connected"
+              echo "All NetBird nodes connected"
               exit 0
             fi
             echo "Waiting for NetBird connection... ($i/120)"

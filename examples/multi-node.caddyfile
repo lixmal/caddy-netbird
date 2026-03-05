@@ -1,0 +1,33 @@
+# Multiple nodes: separate peer identities for different networks
+# or access policies from a single Caddy instance.
+
+{
+	netbird {
+		# Different management servers
+		node corp {
+			management_url https://netbird.corp.example.com:443
+			setup_key {$NB_CORP_KEY}
+			hostname caddy-corp
+			wireguard_port 0
+		}
+
+		node staging {
+			management_url https://netbird.staging.example.com:443
+			setup_key {$NB_STAGING_KEY}
+			hostname caddy-staging
+			wireguard_port 0
+		}
+	}
+}
+
+corp-app.example.com {
+	reverse_proxy backend.corp.internal:8080 {
+		transport netbird corp
+	}
+}
+
+staging-app.example.com {
+	reverse_proxy backend.staging.internal:8080 {
+		transport netbird staging
+	}
+}

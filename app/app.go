@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/caddyserver/caddy/v2"
@@ -20,6 +21,14 @@ import (
 
 	"github.com/netbirdio/netbird/util"
 )
+
+var globalApp atomic.Pointer[App]
+
+// GlobalApp returns the most recently provisioned App instance.
+// Used by the listener package to access clients from the RegisterNetwork callback.
+func GlobalApp() *App {
+	return globalApp.Load()
+}
 
 var (
 	ErrMissingManagementURL = errors.New("management_url is required (set on node or app level)")
@@ -59,6 +68,10 @@ type Node struct {
 	PreSharedKey string `json:"pre_shared_key,omitempty"`
 	// WireguardPort is the port for the network interface. Use 0 for a random port.
 	WireguardPort *int `json:"wireguard_port,omitempty"`
+	// BlockInbound blocks all inbound connections from peers.
+	// Defaults to true. Set to false for egress nodes that accept
+	// connections from other NetBird peers.
+	BlockInbound *bool `json:"block_inbound,omitempty"`
 }
 
 // CaddyModule returns the Caddy module information.
@@ -74,6 +87,8 @@ func (App) CaddyModule() caddy.ModuleInfo {
 func (a *App) Provision(ctx caddy.Context) error {
 	a.logger = ctx.Logger()
 	a.pool = caddy.NewUsagePool()
+
+	globalApp.Store(a)
 
 	logLevel := a.LogLevel
 	if logLevel == "" {
@@ -115,6 +130,8 @@ func (a *App) Start() error {
 
 // Stop shuts down all NetBird clients in the pool.
 func (a *App) Stop() error {
+	globalApp.CompareAndSwap(a, nil)
+
 	var errs []error
 	a.pool.Range(func(_ any, val any) bool {
 		if err := val.(*ManagedClient).stop(); err != nil {
@@ -170,13 +187,14 @@ func (a *App) newManagedClient(nodeName string) (*ManagedClient, error) {
 		hostname = "caddy-" + nodeName
 	}
 
+	blockInbound := node.BlockInbound == nil || *node.BlockInbound
 	opts := embed.Options{
-		DeviceName:          hostname,
-		ManagementURL:       node.ManagementURL,
-		SetupKey:            node.SetupKey,
-		BlockInbound: true,
-		PreSharedKey: node.PreSharedKey,
-		WireguardPort:       node.WireguardPort,
+		DeviceName:    hostname,
+		ManagementURL: node.ManagementURL,
+		SetupKey:      node.SetupKey,
+		BlockInbound:  blockInbound,
+		PreSharedKey:  node.PreSharedKey,
+		WireguardPort: node.WireguardPort,
 	}
 
 	client, err := embed.New(opts)
@@ -362,6 +380,16 @@ func parseNode(d *caddyfile.Dispenser) (*Node, error) {
 				return nil, d.Errf("invalid wireguard_port: %v", err)
 			}
 			node.WireguardPort = &port
+
+		case "block_inbound":
+			if !d.NextArg() {
+				return nil, d.ArgErr()
+			}
+			val, err := strconv.ParseBool(d.Val())
+			if err != nil {
+				return nil, d.Errf("invalid block_inbound: %v", err)
+			}
+			node.BlockInbound = &val
 
 		default:
 			return nil, d.Errf("unrecognized node option: %s", d.Val())

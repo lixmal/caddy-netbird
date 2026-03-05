@@ -1,0 +1,53 @@
+# Mixed ingress and egress in a single config.
+#
+# The ingress node proxies internet traffic to NetBird backends.
+# The egress node exposes external services to NetBird peers.
+
+{
+	netbird {
+		management_url https://api.netbird.io:443
+
+		node ingress {
+			setup_key {$NB_INGRESS_KEY}
+			hostname caddy-ingress
+			wireguard_port 0
+		}
+
+		node egress {
+			setup_key {$NB_EGRESS_KEY}
+			hostname caddy-egress
+			wireguard_port 0
+			block_inbound false
+		}
+	}
+
+	layer4 {
+		# Ingress: SSH from internet through NetBird tunnel
+		:2222 {
+			route {
+				netbird backend.netbird.cloud:22 ingress
+			}
+		}
+
+		# Egress: TCP forwarding from NetBird to external service
+		netbird/egress:9080 {
+			route {
+				proxy external-host:8080
+			}
+		}
+
+		# Egress: SOCKS5 proxy
+		netbird/egress:1080 {
+			route {
+				socks5
+			}
+		}
+	}
+}
+
+# Ingress: HTTP reverse proxy
+app.example.com {
+	reverse_proxy backend.netbird.cloud:8080 {
+		transport netbird ingress
+	}
+}
