@@ -1,0 +1,93 @@
+version: "2"
+linters:
+  default: none
+  enable:
+    - bodyclose
+    - dupword
+    - durationcheck
+    - errcheck
+    - gocritic
+    - gosec
+    - govet
+    - ineffassign
+    - mirror
+    - misspell
+    - nilerr
+    - nilnil
+    - predeclared
+    - revive
+    - staticcheck
+    - unused
+    - wastedassign
+  settings:
+    errcheck:
+      check-type-assertions: false
+    gocritic:
+      disabled-checks:
+        - commentFormatting
+        - captLocal
+        - deprecatedComment
+    gosec:
+      includes:
+        - G101
+        - G103
+        - G104
+        - G106
+        - G108
+        - G109
+        - G110
+        - G111
+        - G201
+        - G202
+        - G203
+        - G301
+        - G302
+        - G303
+        - G304
+        - G305
+        - G306
+        - G307
+        - G403
+        - G502
+        - G503
+        - G504
+        - G601
+        - G602
+    govet:
+      enable:
+        - nilness
+      enable-all: false
+    revive:
+      rules:
+        - name: exported
+          arguments:
+            - checkPrivateReceivers
+            - sayRepetitiveInsteadOfStutters
+          severity: warning
+          disabled: false
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - gosec
+          - mirror
+        path: test\.go
+      - linters:
+          - nilnil
+        path: mock\.go
+    paths:
+      - third_party$
+      - builtin$
+issues:
+  max-same-issues: 5
+formatters:
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
