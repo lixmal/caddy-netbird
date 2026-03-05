@@ -8,6 +8,7 @@ import (
 	_ "github.com/caddyserver/caddy/v2/modules/standard"
 	_ "github.com/lixmal/caddy-netbird/app"
 	_ "github.com/lixmal/caddy-netbird/l4handler"
+	_ "github.com/lixmal/caddy-netbird/listener"
 	_ "github.com/lixmal/caddy-netbird/transport"
 	_ "github.com/mholt/caddy-l4"
 )

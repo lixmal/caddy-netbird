@@ -1,0 +1,41 @@
+# Ingress: expose NetBird peers to the public internet.
+#
+# Caddy terminates TLS, handles load balancing, and proxies requests
+# through the NetBird tunnel to backend peers.
+
+{
+	netbird {
+		management_url https://api.netbird.io:443
+		setup_key {$NB_SETUP_KEY}
+
+		node ingress {
+			hostname caddy-ingress
+		}
+	}
+}
+
+# Basic reverse proxy
+app.example.com {
+	reverse_proxy backend.netbird.cloud:8080 {
+		transport netbird ingress
+	}
+}
+
+# Multiple backends with load balancing
+api.example.com {
+	reverse_proxy app1.netbird.cloud:3000 app2.netbird.cloud:3000 {
+		transport netbird ingress
+		lb_policy round_robin
+		health_uri /healthz
+		health_interval 10s
+	}
+}
+
+# Upstream TLS (DNS route through NetBird to an internal HTTPS service)
+secure.example.com {
+	reverse_proxy https://vault.internal:443 {
+		transport netbird ingress {
+			tls_server_name vault.internal
+		}
+	}
+}

@@ -13,6 +13,11 @@
 			hostname caddy-dns
 			wireguard_port 0
 		}
+		node egress {
+			hostname caddy-egress
+			wireguard_port 0
+			block_inbound false
+		}
 	}
 	layer4 {
 		# TCP → postgres
@@ -32,6 +37,25 @@
 			@echotls tls sni echo-tls.test
 			route @echotls {
 				netbird 172.28.0.10:8443 web
+			}
+		}
+
+		# Egress: NB peers → caddy → nginx HTTP (via host port mapping)
+		netbird/egress:9080 {
+			route {
+				proxy localhost:18080
+			}
+		}
+		# Egress: SOCKS5 proxy for dynamic destinations
+		netbird/egress:1080 {
+			route {
+				socks5
+			}
+		}
+		# Egress: UDP → coredns
+		netbird-udp/egress:9053 {
+			route {
+				proxy udp/172.28.0.12:53
 			}
 		}
 	}

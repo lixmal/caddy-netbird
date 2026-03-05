@@ -1,0 +1,52 @@
+# Layer 4 (TCP/UDP) proxying through NetBird.
+#
+# Requires caddy-l4: https://github.com/mholt/caddy-l4
+# The layer4 block goes inside the global options.
+
+{
+	netbird {
+		management_url https://api.netbird.io:443
+		setup_key {$NB_SETUP_KEY}
+
+		node ingress {
+			hostname caddy-ingress
+		}
+	}
+
+	layer4 {
+		# SSH proxy
+		:2222 {
+			route {
+				netbird backend.netbird.cloud:22 ingress
+			}
+		}
+
+		# DNS (UDP) proxy
+		udp/:5353 {
+			route {
+				netbird dns-server.netbird.cloud:53 ingress
+			}
+		}
+
+		# UDP with custom idle timeout (default: 30s)
+		udp/:5354 {
+			idle_timeout 5m
+			route {
+				netbird dns-server.netbird.cloud:53 ingress
+			}
+		}
+
+		# SNI routing with TLS passthrough (no TLS termination on Caddy)
+		:443 {
+			@app tls sni app.example.com
+			route @app {
+				netbird backend.netbird.cloud:443 ingress
+			}
+
+			@api tls sni api.example.com
+			route @api {
+				netbird api-backend.netbird.cloud:443 ingress
+			}
+		}
+	}
+}

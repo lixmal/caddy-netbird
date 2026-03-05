@@ -19,13 +19,14 @@ ${COREDNS_IP}        172.28.0.12
 ${STATUS_URL}        http://localhost:2019/netbird/status
 ${PING_URL}          http://localhost:2019/netbird/ping
 ${LOG_LEVEL_URL}     http://localhost:2019/netbird/log-level
+${ROUTING_PEER}      integration-routing-peer-1
 
 *** Test Cases ***
-Admin Status Shows Both Nodes
-    [Documentation]    Verify both web and dns nodes are connected with management and signal
+Admin Status Shows All Nodes
+    [Documentation]    Verify web, dns, and egress nodes are connected with management and signal
     ${resp}=    GET    url=${STATUS_URL}    params=format=json    expected_status=200
     ${nodes}=    Get From Dictionary    ${resp.json()}    nodes
-    FOR    ${name}    IN    web    dns
+    FOR    ${name}    IN    web    dns    egress
         Dictionary Should Contain Key    ${nodes}    ${name}
         ${node}=    Get From Dictionary    ${nodes}    ${name}
         ${mgmt}=    Get From Dictionary    ${node}    management
@@ -50,6 +51,7 @@ Admin Status Text Format
     ${resp}=    GET    url=${STATUS_URL}    expected_status=200
     Should Contain    ${resp.text}    web
     Should Contain    ${resp.text}    dns
+    Should Contain    ${resp.text}    egress
     Should Contain    ${resp.text}    Management
 
 Admin Set Log Level
@@ -130,15 +132,27 @@ L4 SNI TLS Passthrough
     [Documentation]    TLS passthrough via SNI routing through NetBird tunnel to nginx HTTPS
     Wait Until Keyword Succeeds    60 sec    5 sec    Verify SNI TLS Passthrough
 
+Egress L4 TCP Proxy
+    [Documentation]    Routing peer connects to caddy's NB IP, caddy proxies to nginx on host
+    Wait Until Keyword Succeeds    60 sec    5 sec    Verify Egress TCP Proxy
+
+Egress SOCKS5 Proxy
+    [Documentation]    Routing peer uses SOCKS5 through caddy's NB IP to reach nginx on host
+    Wait Until Keyword Succeeds    60 sec    5 sec    Verify Egress SOCKS5 Proxy
+
+Egress L4 UDP Proxy DNS
+    [Documentation]    Routing peer queries DNS through caddy's NB UDP listener to CoreDNS
+    Wait Until Keyword Succeeds    60 sec    5 sec    Verify Egress UDP Proxy
+
 *** Keywords ***
 Wait For NetBird Connection
-    [Documentation]    Wait until both NetBird nodes are connected to management and have peers
-    Wait Until Keyword Succeeds    2 min    5 sec    Both Nodes Connected
+    [Documentation]    Wait until all NetBird nodes are connected to management and have peers
+    Wait Until Keyword Succeeds    2 min    5 sec    All Nodes Connected
 
-Both Nodes Connected
+All Nodes Connected
     ${resp}=    GET    url=${STATUS_URL}    params=format=json    expected_status=200
     ${nodes}=    Get From Dictionary    ${resp.json()}    nodes
-    FOR    ${name}    IN    web    dns
+    FOR    ${name}    IN    web    dns    egress
         Dictionary Should Contain Key    ${nodes}    ${name}    Node ${name} not found in status
         ${node}=    Get From Dictionary    ${nodes}    ${name}
         ${mgmt}=    Get From Dictionary    ${node}    management
@@ -173,3 +187,34 @@ Verify SNI TLS Passthrough
     ...    curl -sk --resolve echo-tls.test:${CADDY_L4_SNI}:127.0.0.1 https://echo-tls.test:${CADDY_L4_SNI}/
     Should Be Equal As Integers    ${result.rc}    0    curl command failed: ${result.stderr}
     Should Contain    ${result.stdout}    nginx-tls
+
+Get Egress Node IP
+    [Documentation]    Get the NetBird IP of the egress node from the admin status API
+    ${resp}=    GET    url=${STATUS_URL}    params=format=json    expected_status=200
+    ${nodes}=    Get From Dictionary    ${resp.json()}    nodes
+    ${egress}=    Get From Dictionary    ${nodes}    egress
+    ${local}=    Get From Dictionary    ${egress}    local
+    ${ip_cidr}=    Set Variable    ${local}[ip]
+    ${ip}=    Fetch From Left    ${ip_cidr}    /
+    RETURN    ${ip}
+
+Verify Egress TCP Proxy
+    ${egress_ip}=    Get Egress Node IP
+    ${result}=    Run Process    docker    exec    ${ROUTING_PEER}
+    ...    curl    -sf    --connect-timeout    5    http://${egress_ip}:9080
+    Should Be Equal As Integers    ${result.rc}    0    egress TCP proxy failed: ${result.stderr}
+    Should Contain    ${result.stdout}    nginx
+
+Verify Egress SOCKS5 Proxy
+    ${egress_ip}=    Get Egress Node IP
+    ${result}=    Run Process    docker    exec    ${ROUTING_PEER}
+    ...    curl    -sf    --connect-timeout    5    --socks5    ${egress_ip}:1080    http://127.0.0.1:18080
+    Should Be Equal As Integers    ${result.rc}    0    egress SOCKS5 proxy failed: ${result.stderr}
+    Should Contain    ${result.stdout}    nginx
+
+Verify Egress UDP Proxy
+    ${egress_ip}=    Get Egress Node IP
+    ${result}=    Run Process    docker    exec    ${ROUTING_PEER}
+    ...    dig    @${egress_ip}    -p    9053    app.test.local    A    +short
+    Should Be Equal As Integers    ${result.rc}    0    egress UDP DNS query failed: ${result.stderr}
+    Should Contain    ${result.stdout}    10.0.0.1

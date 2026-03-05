@@ -1,0 +1,45 @@
+# Egress: make external services available to NetBird peers.
+#
+# Caddy listens on the NetBird virtual interface and forwards traffic
+# to services outside the tunnel. Peers connect to caddy's NetBird IP.
+#
+# block_inbound must be false so peers can reach the listener.
+
+{
+	netbird {
+		management_url https://api.netbird.io:443
+		setup_key {$NB_SETUP_KEY}
+
+		node egress {
+			hostname caddy-egress
+			wireguard_port 0
+			block_inbound false
+		}
+	}
+
+	layer4 {
+		# Forward TCP port to an external service.
+		# Peers connect to <caddy-nb-ip>:9080 to reach external-host:8080.
+		netbird/egress:9080 {
+			route {
+				proxy external-host:8080
+			}
+		}
+
+		# SOCKS5 proxy for dynamic destinations.
+		# Peers use <caddy-nb-ip>:1080 as a SOCKS5 proxy.
+		netbird/egress:1080 {
+			route {
+				socks5
+			}
+		}
+
+		# Forward UDP port to an internal DNS server.
+		# Peers query <caddy-nb-ip>:5353 for DNS resolution.
+		netbird-udp/egress:5353 {
+			route {
+				proxy udp/dns-server.internal:53
+			}
+		}
+	}
+}
