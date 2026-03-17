@@ -1,11 +1,11 @@
 module github.com/lixmal/caddy-netbird
 
-go 1.25.0
+go 1.25.5
 
 require (
 	github.com/caddyserver/caddy/v2 v2.11.1
 	github.com/mholt/caddy-l4 v0.0.0-20260216070754-eca560d759c9
-	github.com/netbirdio/netbird v0.66.4
+	github.com/netbirdio/netbird v0.66.5-0.20260317050912-4e149c9222aa
 	github.com/sirupsen/logrus v1.9.4
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/zap v1.27.1
@@ -251,7 +251,7 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	gvisor.dev/gvisor v0.0.0-20251031020517-ecfcdd2f171c // indirect
+	gvisor.dev/gvisor v0.0.0-20260219192049-0f2374377e89 // indirect
 	howett.net/plist v1.0.0 // indirect
 )
 
