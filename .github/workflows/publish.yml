@@ -9,7 +9,17 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  lint:
+    uses: ./.github/workflows/lint.yml
+
+  test:
+    uses: ./.github/workflows/test.yml
+
+  integration:
+    uses: ./.github/workflows/integration.yml
+
   publish:
+    needs: [lint, test, integration]
     runs-on: ubuntu-latest
     permissions:
       contents: read
