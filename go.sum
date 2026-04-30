@@ -438,8 +438,8 @@ github.com/netbirdio/ice/v4 v4.0.0-20250908184934-6202be846b51 h1:Ov4qdafATOgGMB
 github.com/netbirdio/ice/v4 v4.0.0-20250908184934-6202be846b51/go.mod h1:ZSIbPdBn5hePO8CpF1PekH2SfpTxg1PDhEwtbqZS7R8=
 github.com/netbirdio/management-integrations/integrations v0.0.0-20260416123949-2355d972be42 h1:F3zS5fT9xzD1OFLfcdAE+3FfyiwjGukF1hvj0jErgs8=
 github.com/netbirdio/management-integrations/integrations v0.0.0-20260416123949-2355d972be42/go.mod h1:n47r67ZSPgwSmT/Z1o48JjZQW9YJ6m/6Bd/uAXkL3Pg=
-github.com/netbirdio/netbird v0.70.1 h1:u0feM5tLJDq9DD/b0JcqNEnaeCF0hrRjam8AGbRUnbQ=
-github.com/netbirdio/netbird v0.70.1/go.mod h1:Ofs6ERJ9sz3lx/piOSi7q9yH5H/H+vxMHU5QcmZWIeE=
+github.com/netbirdio/netbird v0.70.4 h1:1wPDPH6nJeKMMeXBSDftsfDjrQSD/1NxL2duswP443A=
+github.com/netbirdio/netbird v0.70.4/go.mod h1:G25nZeGsWvzIO2HvEYqb0UAzc8mtozXVD4cMe0tgcfU=
 github.com/netbirdio/signal-dispatcher/dispatcher v0.0.0-20250805121659-6b4ac470ca45 h1:ujgviVYmx243Ksy7NdSwrdGPSRNE3pb8kEDSpH0QuAQ=
 github.com/netbirdio/signal-dispatcher/dispatcher v0.0.0-20250805121659-6b4ac470ca45/go.mod h1:5/sjFmLb8O96B5737VCqhHyGRzNFIaN/Bu7ZodXc3qQ=
 github.com/netbirdio/wireguard-go v0.0.0-20260107100953-33b7c9d03db0 h1:h/QnNzm7xzHPm+gajcblYUOclrW2FeNeDlUNj6tTWKQ=
