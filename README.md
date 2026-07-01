@@ -120,6 +120,35 @@ NetBird peers can then connect to `<caddy-egress-ip>:9080` for the forwarded ser
 
 The `block_inbound false` option is required for egress nodes: it allows incoming connections from NetBird peers to reach the listener.
 
+### Internal (NetBird to NetBird)
+
+Reverse proxy between peers, without leaving the NetBird network. Caddy binds its listener on the NetBird interface (like egress) and dials the upstream through the tunnel (like ingress), so both the client and the backend are peers. Combine the `netbird/<node>` bind address with the `netbird` transport:
+
+```caddyfile
+{
+    netbird {
+        management_url https://api.netbird.io:443
+        setup_key {$NB_SETUP_KEY}
+
+        node internal {
+            hostname caddy-internal
+            wireguard_port 0
+            block_inbound false
+        }
+    }
+}
+
+# HTTP: peers reach caddy-internal's NetBird IP on :8080
+:8080 {
+    bind netbird/internal
+    reverse_proxy backend.netbird.cloud:8000 {
+        transport netbird internal
+    }
+}
+```
+
+Peers connect to `<caddy-internal-ip>:8080`; Caddy proxies to `backend.netbird.cloud:8000` over the tunnel. As with egress, `block_inbound false` is required so peers can reach the listener. For raw TCP/UDP between peers, bind a `layer4` listener on `netbird/<node>` and route with the `netbird` handler. See [examples/internal.caddyfile](examples/internal.caddyfile).
+
 ### Layer 4 (TCP/UDP)
 
 Requires [caddy-l4](https://github.com/mholt/caddy-l4). The `layer4` block goes inside the global options.

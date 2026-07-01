@@ -1,0 +1,59 @@
+# Internal: reverse proxy between NetBird peers.
+#
+# Caddy listens on the NetBird interface AND dials the upstream through the
+# tunnel, so both the client and the backend are peers. Traffic never leaves
+# the NetBird network. This is the peer-to-peer counterpart to ingress
+# (internet to NetBird) and egress (NetBird to external).
+#
+# block_inbound must be false so peers can reach the listener.
+{
+	netbird {
+		management_url https://api.netbird.io:443
+		setup_key {$NB_SETUP_KEY}
+
+		node internal {
+			hostname caddy-internal
+			wireguard_port 0
+			block_inbound false
+		}
+	}
+
+	# L4 (TCP/UDP): listen on the NetBird interface and route to another peer
+	# through the tunnel. Requires caddy-l4.
+	layer4 {
+		# TCP: peers reach caddy-internal:8443, forwarded to backend:443.
+		netbird/internal:8443 {
+			route {
+				netbird backend.netbird.cloud:443 internal
+			}
+		}
+
+		# UDP: peers query caddy-internal:9053, forwarded to a DNS peer.
+		netbird-udp/internal:9053 {
+			route {
+				netbird dns-server.netbird.cloud:53 internal
+			}
+		}
+	}
+}
+
+# L7 (HTTP): bind the site on the NetBird interface and proxy through the
+# tunnel. Peers reach caddy-internal's NetBird IP on :8080; Caddy forwards to
+# backend:8000 over the tunnel.
+:8080 {
+	bind netbird/internal
+	reverse_proxy backend.netbird.cloud:8000 {
+		transport netbird internal
+	}
+}
+
+# L7 with TLS termination on Caddy. Peers connect over HTTPS to the NetBird IP;
+# Caddy terminates TLS with an internally-issued cert and proxies to a
+# plain-HTTP backend peer.
+https://app.internal:443 {
+	bind netbird/internal
+	tls internal
+	reverse_proxy backend.netbird.cloud:8000 {
+		transport netbird internal
+	}
+}
