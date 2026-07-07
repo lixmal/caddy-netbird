@@ -46,6 +46,18 @@ jobs:
         run: |
           VERSION="${{ steps.latest.outputs.version }}"
           go mod edit -dropreplace=github.com/netbirdio/netbird
+
+          # Sync replace directives from NetBird's go.mod at the target
+          # version. NetBird's forked dependencies (dex, wireguard-go, etc.)
+          # move together with its releases; a stale pin breaks go mod tidy.
+          curl -sf "https://proxy.golang.org/github.com/netbirdio/netbird/@v/${VERSION}.mod" -o /tmp/netbird.mod
+          for old in $(go mod edit -json | jq -r '.Replace[].Old.Path'); do
+            go mod edit -dropreplace="${old}"
+          done
+          go mod edit -json /tmp/netbird.mod \
+            | jq -r '.Replace[] | "-replace=\(.Old.Path)=\(.New.Path)@\(.New.Version)"' \
+            | xargs -r go mod edit
+
           go get "github.com/netbirdio/netbird@${VERSION}"
           go mod tidy
 
