@@ -94,6 +94,8 @@ func TestParseGlobalOption_MultipleNodes(t *testing.T) {
 	assert.Equal(t, "https://custom.example.com:443", api.ManagementURL)
 }
 
+// TestParseGlobalOption_NodeAllOptions verifies that every supported node
+// directive is parsed into the corresponding Node field.
 func TestParseGlobalOption_NodeAllOptions(t *testing.T) {
 	app := parseAndDecode(t, `netbird {
 		management_url https://api.netbird.io:443
@@ -102,9 +104,23 @@ func TestParseGlobalOption_NodeAllOptions(t *testing.T) {
 		node full {
 			management_url https://mgmt.example.com:443
 			setup_key node-key
+			jwt_token my-jwt
+			private_key my-priv
 			hostname my-caddy
 			pre_shared_key secret
+			log_level debug
+			config_path /etc/netbird/config.json
+			state_path /var/lib/netbird/state.json
 			wireguard_port 51821
+			mtu 1400
+			no_userspace true
+			disable_client_routes true
+			disable_ipv6 true
+			block_inbound false
+			block_lan_access true
+			dns_labels app db cache
+			preallocated_buffers_per_pool 512
+			max_batch_size 128
 		}
 	}`)
 
@@ -112,10 +128,28 @@ func TestParseGlobalOption_NodeAllOptions(t *testing.T) {
 	require.NotNil(t, node)
 	assert.Equal(t, "https://mgmt.example.com:443", node.ManagementURL)
 	assert.Equal(t, "node-key", node.SetupKey)
+	assert.Equal(t, "my-jwt", node.JWTToken)
+	assert.Equal(t, "my-priv", node.PrivateKey)
 	assert.Equal(t, "my-caddy", node.Hostname)
 	assert.Equal(t, "secret", node.PreSharedKey)
+	assert.Equal(t, "debug", node.LogLevel)
+	assert.Equal(t, "/etc/netbird/config.json", node.ConfigPath)
+	assert.Equal(t, "/var/lib/netbird/state.json", node.StatePath)
 	require.NotNil(t, node.WireguardPort)
 	assert.Equal(t, 51821, *node.WireguardPort)
+	require.NotNil(t, node.MTU)
+	assert.Equal(t, uint16(1400), *node.MTU)
+	assert.True(t, node.NoUserspace)
+	assert.True(t, node.DisableClientRoutes)
+	assert.True(t, node.DisableIPv6)
+	require.NotNil(t, node.BlockInbound)
+	assert.False(t, *node.BlockInbound)
+	assert.True(t, node.BlockLANAccess)
+	assert.Equal(t, []string{"app", "db", "cache"}, node.DNSLabels)
+	require.NotNil(t, node.PreallocatedBuffersPerPool)
+	assert.Equal(t, uint32(512), *node.PreallocatedBuffersPerPool)
+	require.NotNil(t, node.MaxBatchSize)
+	assert.Equal(t, uint32(128), *node.MaxBatchSize)
 }
 
 func TestParseGlobalOption_UnknownOption(t *testing.T) {
@@ -146,6 +180,8 @@ func TestParseGlobalOption_InvalidWireguardPort(t *testing.T) {
 	require.Error(t, err)
 }
 
+// TestValidate covers node credential and management URL validation,
+// including the setup_key, jwt_token, and private_key alternatives.
 func TestValidate(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -180,12 +216,26 @@ func TestValidate(t *testing.T) {
 			wantErr: ErrMissingManagementURL,
 		},
 		{
-			name: "missing setup_key",
+			name: "missing credentials",
 			app: App{
 				DefaultManagementURL: "https://api.netbird.io",
 				Nodes:                map[string]*Node{"web": {}},
 			},
-			wantErr: ErrMissingSetupKey,
+			wantErr: ErrMissingCredentials,
+		},
+		{
+			name: "jwt_token satisfies credentials",
+			app: App{
+				DefaultManagementURL: "https://api.netbird.io",
+				Nodes:                map[string]*Node{"web": {JWTToken: "jwt"}},
+			},
+		},
+		{
+			name: "private_key satisfies credentials",
+			app: App{
+				DefaultManagementURL: "https://api.netbird.io",
+				Nodes:                map[string]*Node{"web": {PrivateKey: "priv"}},
+			},
 		},
 		{
 			name: "no nodes is valid",
@@ -211,11 +261,13 @@ func TestResolveNode(t *testing.T) {
 	app := &App{
 		DefaultManagementURL: "https://default.example.com",
 		DefaultSetupKey:      "default-key",
+		LogLevel:             "debug",
 		Nodes: map[string]*Node{
 			"custom": {
 				ManagementURL: "https://custom.example.com",
 				SetupKey:      "custom-key",
 				Hostname:      "my-host",
+				LogLevel:      "warn",
 			},
 			"partial": {
 				Hostname: "partial-host",
@@ -228,6 +280,7 @@ func TestResolveNode(t *testing.T) {
 		assert.Equal(t, "https://custom.example.com", node.ManagementURL)
 		assert.Equal(t, "custom-key", node.SetupKey)
 		assert.Equal(t, "my-host", node.Hostname)
+		assert.Equal(t, "warn", node.LogLevel)
 	})
 
 	t.Run("partial node inherits defaults", func(t *testing.T) {
@@ -235,6 +288,7 @@ func TestResolveNode(t *testing.T) {
 		assert.Equal(t, "https://default.example.com", node.ManagementURL)
 		assert.Equal(t, "default-key", node.SetupKey)
 		assert.Equal(t, "partial-host", node.Hostname)
+		assert.Equal(t, "debug", node.LogLevel)
 	})
 
 	t.Run("unknown node gets defaults", func(t *testing.T) {
