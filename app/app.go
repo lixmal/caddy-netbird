@@ -181,6 +181,8 @@ func (a *App) LookupClient(nodeName string) (*ManagedClient, bool) {
 	return mc, mc != nil
 }
 
+// newManagedClient resolves the named node's config, builds the NetBird
+// embed.Options, and constructs a ManagedClient for it.
 func (a *App) newManagedClient(nodeName string) (*ManagedClient, error) {
 	node := a.resolveNode(nodeName)
 
