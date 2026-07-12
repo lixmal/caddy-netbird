@@ -105,6 +105,7 @@ func TestParseGlobalOption_NodeAllOptions(t *testing.T) {
 			hostname my-caddy
 			pre_shared_key secret
 			wireguard_port 51821
+			dns_labels app db cache
 		}
 	}`)
 
@@ -116,6 +117,7 @@ func TestParseGlobalOption_NodeAllOptions(t *testing.T) {
 	assert.Equal(t, "secret", node.PreSharedKey)
 	require.NotNil(t, node.WireguardPort)
 	assert.Equal(t, 51821, *node.WireguardPort)
+	assert.Equal(t, []string{"app", "db", "cache"}, node.DNSLabels)
 }
 
 func TestParseGlobalOption_UnknownOption(t *testing.T) {

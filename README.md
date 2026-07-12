@@ -274,6 +274,7 @@ Multiple sites can share the same NetBird client by referencing the same node na
 | `pre_shared_key` | Pre-shared key for the network interface |
 | `wireguard_port` | Port for the network interface (default: 51820 via NetBird) |
 | `block_inbound` | Block inbound connections from peers (default: `true`). Set to `false` for egress nodes |
+| `dns_labels` | Additional DNS labels for the peer (space-separated list) |
 
 > **Note on `wireguard_port`:** For reliable peer-to-peer connectivity, the configured port (or the default random port) should be exposed via port forwarding on the host's firewall/NAT. Without it, connections may fall back to relayed traffic which adds latency.
 

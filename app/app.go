@@ -72,6 +72,8 @@ type Node struct {
 	// Defaults to true. Set to false for egress nodes that accept
 	// connections from other NetBird peers.
 	BlockInbound *bool `json:"block_inbound,omitempty"`
+	// DNSLabels defines additional DNS labels configured in the peer.
+	DNSLabels []string `json:"dns_labels,omitempty"`
 }
 
 // CaddyModule returns the Caddy module information.
@@ -195,6 +197,7 @@ func (a *App) newManagedClient(nodeName string) (*ManagedClient, error) {
 		BlockInbound:  blockInbound,
 		PreSharedKey:  node.PreSharedKey,
 		WireguardPort: node.WireguardPort,
+		DNSLabels:     node.DNSLabels,
 	}
 
 	client, err := embed.New(opts)
@@ -390,6 +393,13 @@ func parseNode(d *caddyfile.Dispenser) (*Node, error) {
 				return nil, d.Errf("invalid block_inbound: %v", err)
 			}
 			node.BlockInbound = &val
+
+		case "dns_labels":
+			labels := d.RemainingArgs()
+			if len(labels) == 0 {
+				return nil, d.ArgErr()
+			}
+			node.DNSLabels = labels
 
 		default:
 			return nil, d.Errf("unrecognized node option: %s", d.Val())
