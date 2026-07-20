@@ -32,7 +32,7 @@ func GlobalApp() *App {
 
 var (
 	ErrMissingManagementURL = errors.New("management_url is required (set on node or app level)")
-	ErrMissingSetupKey      = errors.New("setup_key is required (set on node or app level)")
+	ErrMissingCredentials   = errors.New("one of setup_key, jwt_token, or private_key is required (set on node or app level)")
 )
 
 func init() {
@@ -57,21 +57,56 @@ type App struct {
 }
 
 // Node is the configuration for a single NetBird client identity.
+// The fields mirror the options accepted by the NetBird embedded client
+// (embed.Options).
 type Node struct {
 	// ManagementURL overrides the app-level default.
 	ManagementURL string `json:"management_url,omitempty"`
-	// SetupKey overrides the app-level default.
+	// SetupKey overrides the app-level default. One of SetupKey,
+	// JWTToken, or PrivateKey must be set (directly or via the
+	// app-level default setup key).
 	SetupKey string `json:"setup_key,omitempty"`
+	// JWTToken is used for JWT-based authentication instead of a setup key.
+	JWTToken string `json:"jwt_token,omitempty"`
+	// PrivateKey is used for direct private key authentication instead of a setup key.
+	PrivateKey string `json:"private_key,omitempty"`
 	// Hostname is the device name registered in the NetBird network.
 	Hostname string `json:"hostname,omitempty"`
 	// PreSharedKey is the pre-shared key for the network interface.
 	PreSharedKey string `json:"pre_shared_key,omitempty"`
+	// LogLevel sets the log level for this client (defaults to info if empty).
+	LogLevel string `json:"log_level,omitempty"`
+	// ConfigPath is the path to the NetBird config file. If empty, the
+	// config is kept in memory and not persisted.
+	ConfigPath string `json:"config_path,omitempty"`
+	// StatePath is the path to the NetBird state file.
+	StatePath string `json:"state_path,omitempty"`
 	// WireguardPort is the port for the network interface. Use 0 for a random port.
 	WireguardPort *int `json:"wireguard_port,omitempty"`
+	// MTU is the MTU for the network interface (valid range 576..8192).
+	// If unset, the existing config MTU is preserved, otherwise it defaults to 1280.
+	MTU *uint16 `json:"mtu,omitempty"`
+	// NoUserspace disables userspace networking mode. Needs admin/root privileges.
+	NoUserspace bool `json:"no_userspace,omitempty"`
+	// DisableClientRoutes disables the client routes.
+	DisableClientRoutes bool `json:"disable_client_routes,omitempty"`
+	// DisableIPv6 disables IPv6 overlay addressing.
+	DisableIPv6 bool `json:"disable_ipv6,omitempty"`
 	// BlockInbound blocks all inbound connections from peers.
 	// Defaults to true. Set to false for egress nodes that accept
 	// connections from other NetBird peers.
 	BlockInbound *bool `json:"block_inbound,omitempty"`
+	// BlockLANAccess blocks the peer from reaching the host's LAN
+	// (RFC 1918, link-local, loopback) when used as a routing peer.
+	BlockLANAccess bool `json:"block_lan_access,omitempty"`
+	// DNSLabels defines additional DNS labels configured in the peer.
+	DNSLabels []string `json:"dns_labels,omitempty"`
+	// PreallocatedBuffersPerPool caps the per-tunnel buffer pool. Zero
+	// leaves the pool unbounded. This setting is process-global.
+	PreallocatedBuffersPerPool *uint32 `json:"preallocated_buffers_per_pool,omitempty"`
+	// MaxBatchSize overrides the number of packets the tunnel reads or
+	// writes per syscall. Zero uses the platform default. Process-global.
+	MaxBatchSize *uint32 `json:"max_batch_size,omitempty"`
 }
 
 // CaddyModule returns the Caddy module information.
@@ -116,8 +151,8 @@ func (a *App) Validate() error {
 		if setupKey == "" {
 			setupKey = a.DefaultSetupKey
 		}
-		if setupKey == "" {
-			return fmt.Errorf("node %q: %w", name, ErrMissingSetupKey)
+		if setupKey == "" && node.JWTToken == "" && node.PrivateKey == "" {
+			return fmt.Errorf("node %q: %w", name, ErrMissingCredentials)
 		}
 	}
 	return nil
@@ -179,6 +214,8 @@ func (a *App) LookupClient(nodeName string) (*ManagedClient, bool) {
 	return mc, mc != nil
 }
 
+// newManagedClient resolves the named node's config, builds the NetBird
+// embed.Options, and constructs a ManagedClient for it.
 func (a *App) newManagedClient(nodeName string) (*ManagedClient, error) {
 	node := a.resolveNode(nodeName)
 
@@ -189,12 +226,27 @@ func (a *App) newManagedClient(nodeName string) (*ManagedClient, error) {
 
 	blockInbound := node.BlockInbound == nil || *node.BlockInbound
 	opts := embed.Options{
-		DeviceName:    hostname,
-		ManagementURL: node.ManagementURL,
-		SetupKey:      node.SetupKey,
-		BlockInbound:  blockInbound,
-		PreSharedKey:  node.PreSharedKey,
-		WireguardPort: node.WireguardPort,
+		DeviceName:          hostname,
+		ManagementURL:       node.ManagementURL,
+		SetupKey:            node.SetupKey,
+		JWTToken:            node.JWTToken,
+		PrivateKey:          node.PrivateKey,
+		PreSharedKey:        node.PreSharedKey,
+		LogLevel:            node.LogLevel,
+		ConfigPath:          node.ConfigPath,
+		StatePath:           node.StatePath,
+		NoUserspace:         node.NoUserspace,
+		DisableClientRoutes: node.DisableClientRoutes,
+		DisableIPv6:         node.DisableIPv6,
+		BlockInbound:        blockInbound,
+		BlockLANAccess:      node.BlockLANAccess,
+		WireguardPort:       node.WireguardPort,
+		MTU:                 node.MTU,
+		DNSLabels:           node.DNSLabels,
+		Performance: embed.Performance{
+			PreallocatedBuffersPerPool: node.PreallocatedBuffersPerPool,
+			MaxBatchSize:               node.MaxBatchSize,
+		},
 	}
 
 	client, err := embed.New(opts)
@@ -220,6 +272,9 @@ func (a *App) resolveNode(name string) Node {
 	}
 	if node.SetupKey == "" {
 		node.SetupKey = a.DefaultSetupKey
+	}
+	if node.LogLevel == "" {
+		node.LogLevel = a.LogLevel
 	}
 	return node
 }
@@ -359,6 +414,18 @@ func parseNode(d *caddyfile.Dispenser) (*Node, error) {
 			}
 			node.SetupKey = d.Val()
 
+		case "jwt_token":
+			if !d.NextArg() {
+				return nil, d.ArgErr()
+			}
+			node.JWTToken = d.Val()
+
+		case "private_key":
+			if !d.NextArg() {
+				return nil, d.ArgErr()
+			}
+			node.PrivateKey = d.Val()
+
 		case "hostname":
 			if !d.NextArg() {
 				return nil, d.ArgErr()
@@ -371,6 +438,24 @@ func parseNode(d *caddyfile.Dispenser) (*Node, error) {
 			}
 			node.PreSharedKey = d.Val()
 
+		case "log_level":
+			if !d.NextArg() {
+				return nil, d.ArgErr()
+			}
+			node.LogLevel = d.Val()
+
+		case "config_path":
+			if !d.NextArg() {
+				return nil, d.ArgErr()
+			}
+			node.ConfigPath = d.Val()
+
+		case "state_path":
+			if !d.NextArg() {
+				return nil, d.ArgErr()
+			}
+			node.StatePath = d.Val()
+
 		case "wireguard_port":
 			if !d.NextArg() {
 				return nil, d.ArgErr()
@@ -380,6 +465,38 @@ func parseNode(d *caddyfile.Dispenser) (*Node, error) {
 				return nil, d.Errf("invalid wireguard_port: %v", err)
 			}
 			node.WireguardPort = &port
+
+		case "mtu":
+			if !d.NextArg() {
+				return nil, d.ArgErr()
+			}
+			mtu, err := strconv.ParseUint(d.Val(), 10, 16)
+			if err != nil {
+				return nil, d.Errf("invalid mtu: %v", err)
+			}
+			v := uint16(mtu)
+			node.MTU = &v
+
+		case "no_userspace":
+			val, err := parseBoolArg(d)
+			if err != nil {
+				return nil, err
+			}
+			node.NoUserspace = val
+
+		case "disable_client_routes":
+			val, err := parseBoolArg(d)
+			if err != nil {
+				return nil, err
+			}
+			node.DisableClientRoutes = val
+
+		case "disable_ipv6":
+			val, err := parseBoolArg(d)
+			if err != nil {
+				return nil, err
+			}
+			node.DisableIPv6 = val
 
 		case "block_inbound":
 			if !d.NextArg() {
@@ -391,12 +508,66 @@ func parseNode(d *caddyfile.Dispenser) (*Node, error) {
 			}
 			node.BlockInbound = &val
 
+		case "block_lan_access":
+			val, err := parseBoolArg(d)
+			if err != nil {
+				return nil, err
+			}
+			node.BlockLANAccess = val
+
+		case "dns_labels":
+			labels := d.RemainingArgs()
+			if len(labels) == 0 {
+				return nil, d.ArgErr()
+			}
+			node.DNSLabels = labels
+
+		case "preallocated_buffers_per_pool":
+			v, err := parseUint32Arg(d)
+			if err != nil {
+				return nil, err
+			}
+			node.PreallocatedBuffersPerPool = &v
+
+		case "max_batch_size":
+			v, err := parseUint32Arg(d)
+			if err != nil {
+				return nil, err
+			}
+			node.MaxBatchSize = &v
+
 		default:
 			return nil, d.Errf("unrecognized node option: %s", d.Val())
 		}
 	}
 
 	return node, nil
+}
+
+// parseBoolArg reads and parses a single boolean argument for the current directive.
+func parseBoolArg(d *caddyfile.Dispenser) (bool, error) {
+	directive := d.Val()
+	if !d.NextArg() {
+		return false, d.ArgErr()
+	}
+	val, err := strconv.ParseBool(d.Val())
+	if err != nil {
+		return false, d.Errf("invalid %s: %v", directive, err)
+	}
+	return val, nil
+}
+
+// parseUint32Arg reads and parses a single uint32 argument for the current directive.
+func parseUint32Arg(d *caddyfile.Dispenser) (uint32, error) {
+	directive := d.Val()
+	if !d.NextArg() {
+		return 0, d.ArgErr()
+	}
+	n, err := strconv.ParseUint(d.Val(), 10, 32)
+	if err != nil {
+		return 0, d.Errf("invalid %s: %v", directive, err)
+	}
+	return uint32(n), nil
 }
 
 var (

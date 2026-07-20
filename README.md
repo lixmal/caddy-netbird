@@ -270,10 +270,25 @@ Multiple sites can share the same NetBird client by referencing the same node na
 |--------|-------------|
 | `management_url` | Override app-level management URL |
 | `setup_key` | Override app-level setup key |
+| `jwt_token` | JWT-based authentication instead of a setup key |
+| `private_key` | Direct private key authentication instead of a setup key |
 | `hostname` | Device name in the NetBird network (default: `caddy-<node>`) |
 | `pre_shared_key` | Pre-shared key for the network interface |
+| `log_level` | Log level for this client (e.g. `debug`, `info`, `warn`) |
+| `config_path` | Path to the NetBird config file (in-memory if unset) |
+| `state_path` | Path to the NetBird state file |
 | `wireguard_port` | Port for the network interface (default: 51820 via NetBird) |
+| `mtu` | MTU for the network interface (valid range 576..8192) |
+| `no_userspace` | Disable userspace networking mode (`true`/`false`, needs root) |
+| `disable_client_routes` | Disable client routes (`true`/`false`) |
+| `disable_ipv6` | Disable IPv6 overlay addressing (`true`/`false`) |
 | `block_inbound` | Block inbound connections from peers (default: `true`). Set to `false` for egress nodes |
+| `block_lan_access` | Block the peer from reaching the host's LAN when used as a routing peer (`true`/`false`) |
+| `dns_labels` | Additional DNS labels for the peer (space-separated list) |
+| `preallocated_buffers_per_pool` | Cap the per-tunnel buffer pool (process-global tuning) |
+| `max_batch_size` | Packets read/written per syscall (process-global tuning) |
+
+> **Authentication:** one of `setup_key` (node or app level), `jwt_token`, or `private_key` is required per node.
 
 > **Note on `wireguard_port`:** For reliable peer-to-peer connectivity, the configured port (or the default random port) should be exposed via port forwarding on the host's firewall/NAT. Without it, connections may fall back to relayed traffic which adds latency.
 
