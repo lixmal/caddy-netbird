@@ -152,6 +152,8 @@ Reverse proxy between peers, without leaving the NetBird network. Caddy binds it
 
 Peers connect to `<caddy-internal-ip>:8080`; Caddy proxies to `backend.netbird.cloud:8000` over the tunnel. As with egress, `block_inbound false` is required so peers can reach the listener. For raw TCP/UDP between peers, bind a `layer4` listener on `netbird/<node>` and route with the `netbird` handler. See [examples/internal.caddyfile](examples/internal.caddyfile).
 
+For serving HTTPS on internal-only sites, the default ACME challenges cannot reach a NetBird-only listener. See [examples/internal-tls.caddyfile](examples/internal-tls.caddyfile) for certificate provisioning options: ACME DNS-01 (requires a DNS provider module in the build), Caddy's internal CA, or an existing internal PKI.
+
 ### Layer 4 (TCP/UDP)
 
 Requires [caddy-l4](https://github.com/mholt/caddy-l4). The `layer4` block goes inside the global options.

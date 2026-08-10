@@ -1,0 +1,104 @@
+# TLS for internal sites: provisioning certificates for sites that only
+# exist on the NetBird interface.
+#
+# The default ACME challenges (HTTP-01, TLS-ALPN-01) cannot work here: the
+# CA has to connect to the site, and a NetBird-only listener is not
+# reachable from the internet. The options below provision certificates
+# without exposing anything publicly.
+#
+# Name resolution is a separate concern: peers must resolve the site name
+# to this node's NetBird IP. Options:
+#
+#   - dns_labels on the node: extra names under the NetBird DNS domain
+#     (e.g. app.netbird.cloud). No setup beyond the node config, but you
+#     do not control that zone in public DNS, so it pairs with the
+#     internal CA options, not with DNS-01.
+#   - A NetBird custom DNS zone (Dashboard: DNS > Zones, or
+#     POST /api/dns/zones) with an A record pointing a name in your own
+#     domain, e.g. app.internal.example.com, at this node's NetBird IP.
+#     Works with every option below and is required for DNS-01.
+#   - Split DNS via NetBird nameserver groups, if you already run an
+#     internal DNS server for the domain.
+{
+	netbird {
+		management_url https://api.netbird.io:443
+		setup_key {$NB_SETUP_KEY}
+
+		node internal {
+			hostname caddy-internal
+			wireguard_port 0
+			block_inbound false
+			dns_labels app
+		}
+	}
+}
+
+# Option 1: publicly trusted certificate via the ACME DNS-01 challenge.
+#
+# The DNS challenge only publishes a TXT record in the public zone; the CA
+# never connects to the site. Clients need no extra trust setup. Requires
+# a domain you control and a DNS provider module, which is not part of the
+# default build:
+#
+#   xcaddy build --with github.com/lixmal/caddy-netbird \
+#       --with github.com/caddy-dns/cloudflare \
+#       ... (replace directives from the README)
+#
+# A wildcard keeps all internal services under one certificate and one
+# DNS-01 configuration.
+*.internal.example.com {
+	bind netbird/internal
+	tls {
+		dns cloudflare {env.CF_API_TOKEN}
+	}
+
+	@app host app.internal.example.com
+	handle @app {
+		reverse_proxy backend.netbird.cloud:8000 {
+			transport netbird internal
+		}
+	}
+
+	@grafana host grafana.internal.example.com
+	handle @grafana {
+		reverse_proxy monitoring.netbird.cloud:3000 {
+			transport netbird internal
+		}
+	}
+}
+
+# Option 2: Caddy's internal CA. No external dependencies, but every
+# client must trust the root CA or it will see certificate warnings. The
+# root certificate is at <data_dir>/pki/authorities/local/root.crt
+# (/data/caddy/pki/authorities/local/root.crt in the container).
+# Distribute it to peers, or run `caddy trust` where Caddy runs locally.
+https://app.netbird.cloud {
+	bind netbird/internal
+	tls internal
+	reverse_proxy backend.netbird.cloud:8000 {
+		transport netbird internal
+	}
+}
+
+# Option 3: existing internal PKI.
+#
+# ACME against an internal CA such as step-ca. The CA must be reachable
+# from this host (directly or through the tunnel).
+https://vault.internal.example.com {
+	bind netbird/internal
+	tls {
+		ca https://ca.internal.example.com/acme/acme/directory
+	}
+	reverse_proxy backend.netbird.cloud:8200 {
+		transport netbird internal
+	}
+}
+
+# Certificates managed outside Caddy (mounted or deployed by other means).
+https://ldap.internal.example.com {
+	bind netbird/internal
+	tls /certs/ldap.crt /certs/ldap.key
+	reverse_proxy backend.netbird.cloud:8389 {
+		transport netbird internal
+	}
+}
