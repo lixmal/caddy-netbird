@@ -5,7 +5,7 @@ go 1.25.5
 require (
 	github.com/caddyserver/caddy/v2 v2.11.4
 	github.com/mholt/caddy-l4 v0.0.0-20260216070754-eca560d759c9
-	github.com/netbirdio/netbird v0.76.3-0.20260807190256-b961f93a3310
+	github.com/netbirdio/netbird v0.77.0
 	github.com/sirupsen/logrus v1.9.4
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/zap v1.28.0
@@ -277,4 +277,4 @@ replace github.com/dexidp/dex/api/v2 => github.com/netbirdio/dex/api/v2 v2.0.0-2
 
 replace github.com/mailru/easyjson => github.com/netbirdio/easyjson v0.9.0
 
-replace github.com/wailsapp/wails/v3 => github.com/netbirdio/wails/v3 v3.0.0-beta.3.0.20260807055527-fc03f984d701
+replace github.com/wailsapp/wails/v3 => github.com/netbirdio/wails/v3 v3.0.0-beta.3.0.20260810103952-24e716aea4db
