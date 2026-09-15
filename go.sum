@@ -456,12 +456,12 @@ github.com/netbirdio/ice/v4 v4.0.0-20250908184934-6202be846b51 h1:Ov4qdafATOgGMB
 github.com/netbirdio/ice/v4 v4.0.0-20250908184934-6202be846b51/go.mod h1:ZSIbPdBn5hePO8CpF1PekH2SfpTxg1PDhEwtbqZS7R8=
 github.com/netbirdio/management-integrations/integrations v0.0.0-20260803100840-78e79ba20f87 h1:iJeUvSMC0BTpkw7u4JyWcY4/3dl7fEL9DR/TpKf2+1w=
 github.com/netbirdio/management-integrations/integrations v0.0.0-20260803100840-78e79ba20f87/go.mod h1:pmsCPx1S0nuZRxCextGpc9AV4hLgGSuTsc4NMuwGeCo=
-github.com/netbirdio/netbird v0.78.1 h1:xgZQ/V1n43GmJlicofdSm06NWpacL5PZKgGUJK6Ayaw=
-github.com/netbirdio/netbird v0.78.1/go.mod h1:X6nvZN6QjwmZXTAtACARVrTJ3v4lTvik4WEP9BT1b+o=
+github.com/netbirdio/netbird v0.78.2 h1:/T8/cU0wK6jXFnrurGOvp9xpO85FpJ1cqO8JeOB4dKA=
+github.com/netbirdio/netbird v0.78.2/go.mod h1:L6JS+286elkKlHzMC5cRD7xonwTIUG6XdCJ7vWFk8Bg=
 github.com/netbirdio/signal-dispatcher/dispatcher v0.0.0-20250805121659-6b4ac470ca45 h1:ujgviVYmx243Ksy7NdSwrdGPSRNE3pb8kEDSpH0QuAQ=
 github.com/netbirdio/signal-dispatcher/dispatcher v0.0.0-20250805121659-6b4ac470ca45/go.mod h1:5/sjFmLb8O96B5737VCqhHyGRzNFIaN/Bu7ZodXc3qQ=
-github.com/netbirdio/wireguard-go v0.0.0-20260628102922-2834bebf6c1a h1:3CWK+yTvRKOcC0Q8VCTGy4l60TEb27CQVS7LkMxwjmw=
-github.com/netbirdio/wireguard-go v0.0.0-20260628102922-2834bebf6c1a/go.mod h1:rpwXGsirqLqN2L0JDJQlwOboGHmptD5ZD6T2VmcqhTw=
+github.com/netbirdio/wireguard-go v0.0.0-20260914123147-8bf8fa968f1a h1:Nt8BgkTkI56LGBPPEBywM406MVKJDqeDIVdgsZyYs80=
+github.com/netbirdio/wireguard-go v0.0.0-20260914123147-8bf8fa968f1a/go.mod h1:rpwXGsirqLqN2L0JDJQlwOboGHmptD5ZD6T2VmcqhTw=
 github.com/nxadm/tail v1.4.11 h1:8feyoE3OzPrcshW5/MJ4sGESc5cqmGkGCWlco4l0bqY=
 github.com/nxadm/tail v1.4.11/go.mod h1:OTaG3NK980DZzxbRq6lEuzgU+mug70nY11sMd4JXXHc=
 github.com/oapi-codegen/runtime v1.1.2 h1:P2+CubHq8fO4Q6fV1tqDBZHCwpVpvPg7oKiYzQgXIyI=
