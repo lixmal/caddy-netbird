@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	github.com/caddyserver/caddy/v2 v2.11.4
 	github.com/mholt/caddy-l4 v0.0.0-20260216070754-eca560d759c9
-	github.com/netbirdio/netbird v0.81.2
+	github.com/netbirdio/netbird v0.81.3
 	github.com/sirupsen/logrus v1.9.4
 	github.com/stretchr/testify v1.12.1
 	go.uber.org/zap v1.28.0
@@ -159,7 +159,7 @@ require (
 	github.com/prometheus/otlptranslator v1.0.0 // indirect
 	github.com/prometheus/procfs v0.20.1 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
-	github.com/quic-go/quic-go v0.62.0 // indirect
+	github.com/quic-go/quic-go v0.64.0 // indirect
 	github.com/rs/xid v1.6.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/shirou/gopsutil/v4 v4.25.8 // indirect

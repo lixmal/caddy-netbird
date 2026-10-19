@@ -460,8 +460,8 @@ github.com/netbirdio/ice/v4 v4.0.0-20250908184934-6202be846b51 h1:Ov4qdafATOgGMB
 github.com/netbirdio/ice/v4 v4.0.0-20250908184934-6202be846b51/go.mod h1:ZSIbPdBn5hePO8CpF1PekH2SfpTxg1PDhEwtbqZS7R8=
 github.com/netbirdio/management-integrations/integrations v0.0.0-20261006132740-6e6b0cb01f2e h1:SnDCreUnY+QDxKPueUoNrniMALCu2VFkXTCr/RIZjdg=
 github.com/netbirdio/management-integrations/integrations v0.0.0-20261006132740-6e6b0cb01f2e/go.mod h1:n47r67ZSPgwSmT/Z1o48JjZQW9YJ6m/6Bd/uAXkL3Pg=
-github.com/netbirdio/netbird v0.81.2 h1:mn4pwqRSsy4/U0sfRbd5uh44W3TGNVwXoZRHvx3k1jk=
-github.com/netbirdio/netbird v0.81.2/go.mod h1:5ovY2sS0D32MKAF6O8y2+uRTm96GDXym+Ank+RU4Jbo=
+github.com/netbirdio/netbird v0.81.3 h1:CKIBgCd8IHDoEQ0RY/SK2C3EmLWjymggEXJQ3WSxylI=
+github.com/netbirdio/netbird v0.81.3/go.mod h1:gbl4wX2T0O19xbKL2t9atBzzR0KCE4d+bLWEYPAR9LM=
 github.com/netbirdio/signal-dispatcher/dispatcher v0.0.0-20250805121659-6b4ac470ca45 h1:ujgviVYmx243Ksy7NdSwrdGPSRNE3pb8kEDSpH0QuAQ=
 github.com/netbirdio/signal-dispatcher/dispatcher v0.0.0-20250805121659-6b4ac470ca45/go.mod h1:5/sjFmLb8O96B5737VCqhHyGRzNFIaN/Bu7ZodXc3qQ=
 github.com/netbirdio/wireguard-go v0.0.0-20261008122457-d2b1ce9bfee9 h1:Mjt3tIBGa1/mJh1Xn8uZP30cd2VYd0NHANqTn+HBsaU=
@@ -554,8 +554,8 @@ github.com/quic-go/go-ossfuzz-seeds v0.1.0 h1:APacT+iIaNF6fd8AGEiN3bT/Jtkd2jz4v4
 github.com/quic-go/go-ossfuzz-seeds v0.1.0/go.mod h1:3IOHRbJIc+L6YKMwfDtJAM9Vj9k0YY4muhuyUYk5tbk=
 github.com/quic-go/qpack v0.6.0 h1:g7W+BMYynC1LbYLSqRt8PBg5Tgwxn214ZZR34VIOjz8=
 github.com/quic-go/qpack v0.6.0/go.mod h1:lUpLKChi8njB4ty2bFLX2x4gzDqXwUpaO1DP9qMDZII=
-github.com/quic-go/quic-go v0.62.0 h1:ZHDjCk5OacATwGvs8PWE97CTvX7AqZiVoW7++ZOXTf8=
-github.com/quic-go/quic-go v0.62.0/go.mod h1:RAro2j2yN9a9EiPACLHT9IB2NXCvGQmmo/alT0yYI0w=
+github.com/quic-go/quic-go v0.64.0 h1:dlUpiyp9+7UrbbuhLvV7CJ9F8uoZxXf/vi2h8tkuuoA=
+github.com/quic-go/quic-go v0.64.0/go.mod h1:RAro2j2yN9a9EiPACLHT9IB2NXCvGQmmo/alT0yYI0w=
 github.com/redis/go-redis/v9 v9.7.3 h1:YpPyAayJV+XErNsatSElgRZZVCwXX9QzkKYNvO7x0wM=
 github.com/redis/go-redis/v9 v9.7.3/go.mod h1:bGUrSggJ9X9GUmZpZNEOQKaANxSGgOEBRltRTZHSvrA=
 github.com/rogpeppe/go-internal v1.16.0 h1:O9DK+vNMDVGLr2BeZqmpLeMjiMNkuXfcqntWbZV6S5g=
