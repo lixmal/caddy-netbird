@@ -47,15 +47,17 @@ jobs:
           VERSION="${{ steps.latest.outputs.version }}"
           go mod edit -dropreplace=github.com/netbirdio/netbird
 
-          # Sync replace directives from NetBird's go.mod at the target
-          # version. NetBird's forked dependencies (dex, wireguard-go, etc.)
-          # move together with its releases; a stale pin breaks go mod tidy.
+          # Sync the replace directives the embedded client still needs from
+          # NetBird's go.mod at the target version. Replaces for modules that
+          # client/embed does not compile are not mirrored, so only the modules
+          # listed here are carried over.
+          NEEDED_REPLACES="github.com/cloudflare/circl"
           curl -sf "https://proxy.golang.org/github.com/netbirdio/netbird/@v/${VERSION}.mod" -o /tmp/netbird.mod
-          for old in $(go mod edit -json | jq -r '.Replace[].Old.Path'); do
+          for old in $(go mod edit -json | jq -r '(.Replace // [])[].Old.Path'); do
             go mod edit -dropreplace="${old}"
           done
           go mod edit -json /tmp/netbird.mod \
-            | jq -r '.Replace[] | "-replace=\(.Old.Path)=\(.New.Path)@\(.New.Version)"' \
+            | jq -r --arg needed "${NEEDED_REPLACES}" '(.Replace // [])[] | select(.Old.Path as $p | ($needed | split(" ") | index($p))) | "-replace=\(.Old.Path)=\(.New.Path)@\(.New.Version)"' \
             | xargs -r go mod edit
 
           go get "github.com/netbirdio/netbird@${VERSION}"
