@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	github.com/caddyserver/caddy/v2 v2.11.4
 	github.com/mholt/caddy-l4 v0.0.0-20260216070754-eca560d759c9
-	github.com/netbirdio/netbird v0.81.2-0.20261021144749-4c8599d68ec8
+	github.com/netbirdio/netbird v0.81.2-0.20261022083922-abf50e3ad4bd
 	github.com/sirupsen/logrus v1.9.4
 	github.com/stretchr/testify v1.12.1
 	go.uber.org/zap v1.28.0
@@ -134,8 +134,8 @@ require (
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/netbirdio/go-nat v0.0.0-20260821095157-6b2c8c5c74e8 // indirect
-	github.com/netbirdio/ice/v4 v4.0.0-20261021135746-8a183c822b29 // indirect
-	github.com/netbirdio/wireguard-go v0.0.0-20261021113144-8c6fb8e40119 // indirect
+	github.com/netbirdio/ice/v4 v4.0.0-20261021152109-d0e5dfacb548 // indirect
+	github.com/netbirdio/wireguard-go v0.0.0-20261021152105-0de46b309cdb // indirect
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58 // indirect
 	github.com/petermattis/goid v0.0.0-20250303134427-723919f7f203 // indirect
 	github.com/pion/dtls/v2 v2.2.10 // indirect
