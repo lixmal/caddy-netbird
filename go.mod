@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	github.com/caddyserver/caddy/v2 v2.11.4
 	github.com/mholt/caddy-l4 v0.0.0-20260216070754-eca560d759c9
-	github.com/netbirdio/netbird v0.82.1
+	github.com/netbirdio/netbird v0.83.0
 	github.com/sirupsen/logrus v1.9.4
 	github.com/stretchr/testify v1.12.1
 	go.uber.org/zap v1.28.0
